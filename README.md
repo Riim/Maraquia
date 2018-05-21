@@ -3,7 +3,7 @@
 ## Установка
 
 ```
-npm i -S @riim/maraquia
+npm i -S maraquia
 ```
 
 ## Настройка соединения
@@ -22,7 +22,7 @@ npm i -S @riim/maraquia
 
 Простой пример отношения one-to-many со ссылкой только в одну сторону:
 ```js
-import { BaseModel, Field, Model } from '@riim/maraquia';
+import { BaseModel, Field, Model } from 'maraquia';
 
 @Model({
 	collectionName: 'Pet'
@@ -310,7 +310,7 @@ class User extends BaseModel {
 
 Typescript -- это здорово, но иногда надо без него. Для этого вместо объекта передаваемого декоратору `Model` необходимо определить статическое поле `$schema`, в котором есть также поле `fields`:
 ```js
-const { BaseModel } = require('@riim/maraquia');
+const { BaseModel } = require('maraquia');
 
 class Pet extends BaseModel {
 }
