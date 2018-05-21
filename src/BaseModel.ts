@@ -42,12 +42,52 @@ export class BaseModel {
 		return (m || (await getDefaultMaraquiaInstance())).exists(this, query);
 	}
 
-	static async find<T extends BaseModel>(query: object, m?: Maraquia): Promise<T | null> {
-		return (m || (await getDefaultMaraquiaInstance())).find<T>(this, query);
+	static async find<T extends BaseModel>(query: object, m?: Maraquia): Promise<T | null>;
+	static async find<T extends BaseModel>(
+		query: object,
+		resolvedFields: Array<string>,
+		m?: Maraquia
+	): Promise<T | null>;
+	static async find<T extends BaseModel>(
+		query: object,
+		mOrResolvedFields?: Maraquia | Array<string>,
+		m?: Maraquia
+	): Promise<T | null> {
+		let resolvedFields: Array<string> | undefined;
+
+		if (mOrResolvedFields) {
+			if (mOrResolvedFields instanceof Maraquia) {
+				m = mOrResolvedFields;
+			} else {
+				resolvedFields = mOrResolvedFields;
+			}
+		}
+
+		return (m || (await getDefaultMaraquiaInstance())).find<T>(this, query, resolvedFields);
 	}
 
-	static async findAll<T extends BaseModel>(query: object, m?: Maraquia): Promise<Array<T>> {
-		return (m || (await getDefaultMaraquiaInstance())).findAll<T>(this, query);
+	static async findAll<T extends BaseModel>(query: object, m?: Maraquia): Promise<Array<T>>;
+	static async findAll<T extends BaseModel>(
+		query: object,
+		resolvedFields: Array<string>,
+		m?: Maraquia
+	): Promise<Array<T>>;
+	static async findAll<T extends BaseModel>(
+		query: object,
+		mOrResolvedFields?: Maraquia | Array<string>,
+		m?: Maraquia
+	): Promise<Array<T>> {
+		let resolvedFields: Array<string> | undefined;
+
+		if (mOrResolvedFields) {
+			if (mOrResolvedFields instanceof Maraquia) {
+				m = mOrResolvedFields;
+			} else {
+				resolvedFields = mOrResolvedFields;
+			}
+		}
+
+		return (m || (await getDefaultMaraquiaInstance())).findAll<T>(this, query, resolvedFields);
 	}
 
 	m: Maraquia;

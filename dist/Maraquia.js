@@ -65,9 +65,9 @@ var Maraquia = /** @class */ (function () {
             });
         });
     };
-    Maraquia.prototype.find = function (type, query) {
+    Maraquia.prototype.find = function (type, query, resolvedFields) {
         return __awaiter(this, void 0, void 0, function () {
-            var collectionName, data;
+            var collectionName, aggregationPipeline, _i, resolvedFields_1, fieldName, fieldSchema, fieldType, fieldTypeCollectionName, data_1, data;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -80,18 +80,51 @@ var Maraquia = /** @class */ (function () {
                     case 1:
                         _a.sent();
                         _a.label = 2;
-                    case 2: return [4 /*yield*/, this.db.collection(collectionName).findOne(query)];
+                    case 2:
+                        if (!resolvedFields) return [3 /*break*/, 4];
+                        aggregationPipeline = [{ $match: query }, { $limit: 1 }];
+                        for (_i = 0, resolvedFields_1 = resolvedFields; _i < resolvedFields_1.length; _i++) {
+                            fieldName = resolvedFields_1[_i];
+                            fieldSchema = type.$schema.fields[fieldName];
+                            if (!fieldSchema) {
+                                throw new TypeError("Field \"" + fieldName + "\" is not declared");
+                            }
+                            fieldType = fieldSchema.type;
+                            if (!fieldType) {
+                                throw new TypeError("Field \"" + fieldName + "\" has not type");
+                            }
+                            fieldTypeCollectionName = fieldType().$schema.collectionName;
+                            if (!fieldTypeCollectionName) {
+                                throw new TypeError("$schema.collectionName of type \"" + fieldType().name + "\" is required");
+                            }
+                            aggregationPipeline.push({
+                                $lookup: {
+                                    from: fieldTypeCollectionName,
+                                    localField: fieldName,
+                                    foreignField: '_id',
+                                    as: fieldName
+                                }
+                            });
+                        }
+                        return [4 /*yield*/, this.db
+                                .collection(collectionName)
+                                .aggregate(aggregationPipeline)
+                                .toArray()];
                     case 3:
+                        data_1 = (_a.sent())[0];
+                        return [2 /*return*/, data_1 ? new type(data_1, this) : null];
+                    case 4: return [4 /*yield*/, this.db.collection(collectionName).findOne(query)];
+                    case 5:
                         data = _a.sent();
                         return [2 /*return*/, data ? new type(data, this) : null];
                 }
             });
         });
     };
-    Maraquia.prototype.findAll = function (type, query) {
+    Maraquia.prototype.findAll = function (type, query, resolvedFields) {
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
-            var collectionName;
+            var collectionName, aggregationPipeline, _i, resolvedFields_2, fieldName, fieldSchema, fieldType, fieldTypeCollectionName;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -104,11 +137,42 @@ var Maraquia = /** @class */ (function () {
                     case 1:
                         _a.sent();
                         _a.label = 2;
-                    case 2: return [4 /*yield*/, this.db
+                    case 2:
+                        if (!resolvedFields) return [3 /*break*/, 4];
+                        aggregationPipeline = [{ $match: query }];
+                        for (_i = 0, resolvedFields_2 = resolvedFields; _i < resolvedFields_2.length; _i++) {
+                            fieldName = resolvedFields_2[_i];
+                            fieldSchema = type.$schema.fields[fieldName];
+                            if (!fieldSchema) {
+                                throw new TypeError("Field \"" + fieldName + "\" is not declared");
+                            }
+                            fieldType = fieldSchema.type;
+                            if (!fieldType) {
+                                throw new TypeError("Field \"" + fieldName + "\" has not type");
+                            }
+                            fieldTypeCollectionName = fieldType().$schema.collectionName;
+                            if (!fieldTypeCollectionName) {
+                                throw new TypeError("$schema.collectionName of type \"" + fieldType().name + "\" is required");
+                            }
+                            aggregationPipeline.push({
+                                $lookup: {
+                                    from: fieldTypeCollectionName,
+                                    localField: fieldName,
+                                    foreignField: '_id',
+                                    as: fieldName
+                                }
+                            });
+                        }
+                        return [4 /*yield*/, this.db
+                                .collection(collectionName)
+                                .aggregate(aggregationPipeline)
+                                .toArray()];
+                    case 3: return [2 /*return*/, (_a.sent()).map(function (data) { return new type(data, _this); })];
+                    case 4: return [4 /*yield*/, this.db
                             .collection(collectionName)
                             .find(query)
                             .toArray()];
-                    case 3: return [2 /*return*/, (_a.sent()).map(function (data) { return new type(data, _this); })];
+                    case 5: return [2 /*return*/, (_a.sent()).map(function (data) { return new type(data, _this); })];
                 }
             });
         });

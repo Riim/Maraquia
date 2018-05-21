@@ -38,6 +38,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var mongodb_1 = require("mongodb");
 var prettyFormat = require("pretty-format");
 var getDefaultMaraquiaInstance_1 = require("./getDefaultMaraquiaInstance");
+var Maraquia_1 = require("./Maraquia");
 exports.KEY_REFERENCE_FIELDS = Symbol('Maraquia/BaseModel[referenceFields]');
 exports.KEY_DB_COLLECTION_INITIALIZED = Symbol('Maraquia/BaseModel[collectionInitialized]');
 exports.KEY_DATA = Symbol('Maraquia/BaseModel[data]');
@@ -167,36 +168,52 @@ var BaseModel = /** @class */ (function () {
             });
         });
     };
-    BaseModel.find = function (query, m) {
+    BaseModel.find = function (query, mOrResolvedFields, m) {
         return __awaiter(this, void 0, void 0, function () {
-            var _a;
+            var resolvedFields, _a;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
+                        if (mOrResolvedFields) {
+                            if (mOrResolvedFields instanceof Maraquia_1.Maraquia) {
+                                m = mOrResolvedFields;
+                            }
+                            else {
+                                resolvedFields = mOrResolvedFields;
+                            }
+                        }
                         _a = m;
                         if (_a) return [3 /*break*/, 2];
                         return [4 /*yield*/, getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance()];
                     case 1:
                         _a = (_b.sent());
                         _b.label = 2;
-                    case 2: return [2 /*return*/, (_a).find(this, query)];
+                    case 2: return [2 /*return*/, (_a).find(this, query, resolvedFields)];
                 }
             });
         });
     };
-    BaseModel.findAll = function (query, m) {
+    BaseModel.findAll = function (query, mOrResolvedFields, m) {
         return __awaiter(this, void 0, void 0, function () {
-            var _a;
+            var resolvedFields, _a;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
+                        if (mOrResolvedFields) {
+                            if (mOrResolvedFields instanceof Maraquia_1.Maraquia) {
+                                m = mOrResolvedFields;
+                            }
+                            else {
+                                resolvedFields = mOrResolvedFields;
+                            }
+                        }
                         _a = m;
                         if (_a) return [3 /*break*/, 2];
                         return [4 /*yield*/, getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance()];
                     case 1:
                         _a = (_b.sent());
                         _b.label = 2;
-                    case 2: return [2 /*return*/, (_a).findAll(this, query)];
+                    case 2: return [2 /*return*/, (_a).findAll(this, query, resolvedFields)];
                 }
             });
         });

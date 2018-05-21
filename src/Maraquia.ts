@@ -35,7 +35,11 @@ export class Maraquia {
 		return !!(await this.db.collection(collectionName).findOne(query));
 	}
 
-	async find<T extends BaseModel>(type: typeof BaseModel, query: object): Promise<T | null> {
+	async find<T extends BaseModel>(
+		type: typeof BaseModel,
+		query: object,
+		resolvedFields?: Array<string>
+	): Promise<T | null> {
 		let collectionName = type.$schema.collectionName;
 
 		if (!collectionName) {
@@ -44,13 +48,59 @@ export class Maraquia {
 
 		if (!type[KEY_DB_COLLECTION_INITIALIZED]) {
 			await initCollection(type, this);
+		}
+
+		if (resolvedFields) {
+			let aggregationPipeline: Array<object> = [{ $match: query }, { $limit: 1 }];
+
+			for (let fieldName of resolvedFields) {
+				let fieldSchema = (type as typeof BaseModel).$schema.fields[fieldName];
+
+				if (!fieldSchema) {
+					throw new TypeError(`Field "${fieldName}" is not declared`);
+				}
+
+				let fieldType = fieldSchema.type;
+
+				if (!fieldType) {
+					throw new TypeError(`Field "${fieldName}" has not type`);
+				}
+
+				let fieldTypeCollectionName = fieldType().$schema.collectionName;
+
+				if (!fieldTypeCollectionName) {
+					throw new TypeError(
+						`$schema.collectionName of type "${fieldType().name}" is required`
+					);
+				}
+
+				aggregationPipeline.push({
+					$lookup: {
+						from: fieldTypeCollectionName,
+						localField: fieldName,
+						foreignField: '_id',
+						as: fieldName
+					}
+				});
+			}
+
+			let data = (await this.db
+				.collection(collectionName)
+				.aggregate(aggregationPipeline)
+				.toArray())[0];
+
+			return data ? (new type(data, this) as any) : null;
 		}
 
 		let data = await this.db.collection(collectionName).findOne(query);
 		return data ? (new type(data, this) as any) : null;
 	}
 
-	async findAll<T extends BaseModel>(type: typeof BaseModel, query: object): Promise<Array<T>> {
+	async findAll<T extends BaseModel>(
+		type: typeof BaseModel,
+		query: object,
+		resolvedFields?: Array<string>
+	): Promise<Array<T>> {
 		let collectionName = type.$schema.collectionName;
 
 		if (!collectionName) {
@@ -59,6 +109,46 @@ export class Maraquia {
 
 		if (!type[KEY_DB_COLLECTION_INITIALIZED]) {
 			await initCollection(type, this);
+		}
+
+		if (resolvedFields) {
+			let aggregationPipeline: Array<object> = [{ $match: query }];
+
+			for (let fieldName of resolvedFields) {
+				let fieldSchema = (type as typeof BaseModel).$schema.fields[fieldName];
+
+				if (!fieldSchema) {
+					throw new TypeError(`Field "${fieldName}" is not declared`);
+				}
+
+				let fieldType = fieldSchema.type;
+
+				if (!fieldType) {
+					throw new TypeError(`Field "${fieldName}" has not type`);
+				}
+
+				let fieldTypeCollectionName = fieldType().$schema.collectionName;
+
+				if (!fieldTypeCollectionName) {
+					throw new TypeError(
+						`$schema.collectionName of type "${fieldType().name}" is required`
+					);
+				}
+
+				aggregationPipeline.push({
+					$lookup: {
+						from: fieldTypeCollectionName,
+						localField: fieldName,
+						foreignField: '_id',
+						as: fieldName
+					}
+				});
+			}
+
+			return (await this.db
+				.collection(collectionName)
+				.aggregate(aggregationPipeline)
+				.toArray()).map(data => new type(data, this) as any);
 		}
 
 		return (await this.db

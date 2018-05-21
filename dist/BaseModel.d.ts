@@ -36,7 +36,9 @@ export declare class BaseModel {
     static [KEY_DB_COLLECTION_INITIALIZED]: true | undefined;
     static exists(query: object, m?: Maraquia): Promise<boolean>;
     static find<T extends BaseModel>(query: object, m?: Maraquia): Promise<T | null>;
+    static find<T extends BaseModel>(query: object, resolvedFields: Array<string>, m?: Maraquia): Promise<T | null>;
     static findAll<T extends BaseModel>(query: object, m?: Maraquia): Promise<Array<T>>;
+    static findAll<T extends BaseModel>(query: object, resolvedFields: Array<string>, m?: Maraquia): Promise<Array<T>>;
     m: Maraquia;
     [KEY_DATA]: {
         [name: string]: any;
