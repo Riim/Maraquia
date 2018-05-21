@@ -53,10 +53,7 @@ function initCollection(type, m) {
                     return [4 /*yield*/, m.db
                             .collection(schema.collectionName)
                             .createIndex(Array.isArray(index.fields)
-                            ? index.fields.map(function (field) {
-                                return (_a = {}, _a[field] = 1, _a);
-                                var _a;
-                            })
+                            ? index.fields.reduce(function (fields, field) { return ((fields[field] = 1), fields); }, {})
                             : index.fields, index.options)];
                 case 2:
                     _a.sent();

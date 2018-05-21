@@ -11,7 +11,7 @@ export async function initCollection(type: typeof BaseModel, m: Maraquia) {
 				.collection(schema.collectionName!)
 				.createIndex(
 					Array.isArray(index.fields)
-						? index.fields.map(field => ({ [field]: 1 }))
+						? index.fields.reduce((fields, field) => ((fields[field] = 1), fields), {})
 						: index.fields,
 					index.options
 				);
