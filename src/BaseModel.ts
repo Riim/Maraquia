@@ -245,10 +245,10 @@ export class BaseModel {
 	}
 
 	async fetchField<T = BaseModel | Array<BaseModel>>(
-		name: string,
+		name: keyof this,
 		m?: Maraquia
 	): Promise<T | null> {
-		let schema = (this.constructor as typeof BaseModel).$schema.fields[name];
+		let schema = (this.constructor as typeof BaseModel).$schema.fields[name as any];
 
 		if (!schema) {
 			throw new TypeError(`Field "${name}" is not declared`);
@@ -265,7 +265,7 @@ export class BaseModel {
 			throw new TypeError('$schema.collectionName is required');
 		}
 
-		let value = this[KEY_VALUES].get(name) as
+		let value = this[KEY_VALUES].get(name as any) as
 			| ObjectId
 			| Array<ObjectId>
 			| Promise<T | null>
@@ -287,7 +287,7 @@ export class BaseModel {
 					.then(
 						data =>
 							(valuePromise[KEY_VALUE] = this._validateFieldValue(
-								name,
+								name as any,
 								schema,
 								data.map(itemData => new fieldType(itemData, m))
 							))
@@ -298,29 +298,29 @@ export class BaseModel {
 					.then(
 						data =>
 							(valuePromise[KEY_VALUE] = this._validateFieldValue(
-								name,
+								name as any,
 								schema,
 								new fieldType(data, m)
 							)) as any
 					);
 
 		valuePromise[KEY_VALUE] = value;
-		this[KEY_VALUES].set(name, valuePromise);
+		this[KEY_VALUES].set(name as any, valuePromise);
 
 		return valuePromise;
 	}
 
-	setField(name: string, value: any, _key?: Symbol | string): this {
+	setField(name: keyof this, value: any, _key?: Symbol | string): this {
 		if (_key && currentlyValueSetting) {
 			this[_key as any] = value;
 			return this;
 		}
 
 		if (!_key) {
-			_key = name;
+			_key = name as any;
 		}
 
-		let schema = (this.constructor as typeof BaseModel).$schema.fields[name];
+		let schema = (this.constructor as typeof BaseModel).$schema.fields[name as any];
 
 		if (!schema) {
 			throw new TypeError(`Field "${name}" is not declared`);
@@ -335,7 +335,7 @@ export class BaseModel {
 
 					if (!isArray || value.length) {
 						if ((isArray ? value[0] : value) instanceof ObjectId) {
-							this[KEY_VALUES].set(name, value);
+							this[KEY_VALUES].set(name as any, value);
 						} else {
 							if (!((isArray ? value[0] : value) instanceof BaseModel)) {
 								value = isArray
@@ -343,11 +343,11 @@ export class BaseModel {
 									: new fieldType(value);
 							}
 
-							this._validateFieldValue(name, schema, value);
+							this._validateFieldValue(name as any, schema, value);
 
 							let valuePromise = Promise.resolve(value);
 							valuePromise[KEY_VALUE] = value;
-							this[KEY_VALUES].set(name, valuePromise);
+							this[KEY_VALUES].set(name as any, valuePromise);
 						}
 
 						return this;
@@ -359,11 +359,11 @@ export class BaseModel {
 						? typeof schema.default == 'function'
 							? schema.default()
 							: schema.default
-						: this._validateFieldValue(name, schema, null);
+						: this._validateFieldValue(name as any, schema, null);
 
 				let valuePromise = Promise.resolve(value);
 				valuePromise[KEY_VALUE] = value;
-				this[KEY_VALUES].set(name, valuePromise);
+				this[KEY_VALUES].set(name as any, valuePromise);
 
 				return this;
 			}
@@ -371,7 +371,7 @@ export class BaseModel {
 			if (value != null) {
 				if (!Array.isArray(value)) {
 					this[_key as any] = this._validateFieldValue(
-						name,
+						name as any,
 						schema,
 						value instanceof BaseModel ? value : new fieldType(value)
 					);
@@ -381,7 +381,7 @@ export class BaseModel {
 
 				if (value.length) {
 					this[_key as any] = this._validateFieldValue(
-						name,
+						name as any,
 						schema,
 						value[0] instanceof BaseModel
 							? value
@@ -392,7 +392,7 @@ export class BaseModel {
 				}
 			}
 		} else if (value != null && (!Array.isArray(value) || value.length)) {
-			this[_key as any] = this._validateFieldValue(name, schema, value);
+			this[_key as any] = this._validateFieldValue(name as any, schema, value);
 			return this;
 		}
 
@@ -401,7 +401,7 @@ export class BaseModel {
 				? typeof schema.default == 'function'
 					? schema.default()
 					: schema.default
-				: this._validateFieldValue(name, schema, null);
+				: this._validateFieldValue(name as any, schema, null);
 
 		return this;
 	}

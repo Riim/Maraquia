@@ -38,8 +38,8 @@ export declare class BaseModel {
     [KEY_VALUES]: Map<string, ObjectId | Array<ObjectId> | Promise<any> | null>;
     _id: ObjectId | null;
     constructor(data?: Record<string, any> | null, m?: Maraquia);
-    fetchField<T = BaseModel | Array<BaseModel>>(name: string, m?: Maraquia): Promise<T | null>;
-    setField(name: string, value: any, _key?: Symbol | string): this;
+    fetchField<T = BaseModel | Array<BaseModel>>(name: keyof this, m?: Maraquia): Promise<T | null>;
+    setField(name: keyof this, value: any, _key?: Symbol | string): this;
     _validateFieldValue<T>(fieldName: string, fieldSchema: IFieldSchema, value: T): T;
     save(m?: Maraquia): Promise<boolean>;
     remove(m?: Maraquia): Promise<boolean>;

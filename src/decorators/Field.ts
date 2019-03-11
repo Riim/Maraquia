@@ -48,12 +48,12 @@ export function Field(
 
 			get(this: BaseModel) {
 				return type && type().$schema.collectionName
-					? this.fetchField(propertyName)
+					? this.fetchField(propertyName as any)
 					: this[KEY_VALUE];
 			},
 
 			set(this: BaseModel, value: any) {
-				this.setField(propertyName, value, KEY_VALUE);
+				this.setField(propertyName as any, value, KEY_VALUE);
 			}
 		};
 	};
