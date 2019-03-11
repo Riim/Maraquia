@@ -4,6 +4,7 @@
 		"experimentalDecorators": true,
 		"lib": ["es2017"],
 		"module": "commonjs",
+		"newLine": "lf",
 		"noImplicitAny": true,
 		"noImplicitReturns": true,
 		"noUnusedLocals": true,
@@ -11,7 +12,7 @@
 		"preserveConstEnums": true,
 		"strictNullChecks": true,
 		"suppressImplicitAnyIndexErrors": true,
-		"target": "es5"
+		"target": "es6"
 	},
 	"files": [
 		"src/index.ts"

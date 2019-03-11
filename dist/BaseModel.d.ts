@@ -1,4 +1,4 @@
-import { ObjectId } from 'mongodb';
+import { FilterQuery, ObjectId } from 'mongodb';
 import { Maraquia } from './Maraquia';
 export interface IFieldSchema {
     dbFieldName?: string;
@@ -11,18 +11,12 @@ export interface IFieldSchema {
     };
 }
 export interface IIndex {
-    fields: {
-        [name: string]: 1 | -1;
-    } | Array<string>;
-    options?: {
-        [name: string]: any;
-    };
+    fields: Record<string, 1 | -1> | Array<string>;
+    options?: Record<string, any>;
 }
 export interface ISchema {
     collectionName?: string | null;
-    fields: {
-        [name: string]: IFieldSchema;
-    };
+    fields: Record<string, IFieldSchema>;
     indexes?: Array<IIndex> | null;
 }
 export declare const KEY_REFERENCE_FIELDS: unique symbol;
@@ -34,20 +28,16 @@ export declare class BaseModel {
     static $schema: ISchema;
     static [KEY_REFERENCE_FIELDS]: Set<string> | undefined;
     static [KEY_DB_COLLECTION_INITIALIZED]: true | undefined;
-    static exists(query: object, m?: Maraquia): Promise<boolean>;
-    static find<T extends BaseModel>(query: object, m?: Maraquia): Promise<T | null>;
-    static find<T extends BaseModel>(query: object, resolvedFields: Array<string>, m?: Maraquia): Promise<T | null>;
-    static findAll<T extends BaseModel>(query: object, m?: Maraquia): Promise<Array<T>>;
-    static findAll<T extends BaseModel>(query: object, resolvedFields: Array<string>, m?: Maraquia): Promise<Array<T>>;
+    static exists<T = any>(query: FilterQuery<T>, m?: Maraquia): Promise<boolean>;
+    static find<T extends BaseModel>(query: FilterQuery<T>, m?: Maraquia): Promise<T | null>;
+    static find<T extends BaseModel>(query: FilterQuery<T>, resolvedFields: Array<keyof T>, m?: Maraquia): Promise<T | null>;
+    static findAll<T extends BaseModel>(query: FilterQuery<T>, m?: Maraquia): Promise<Array<T>>;
+    static findAll<T extends BaseModel>(query: FilterQuery<T>, resolvedFields: Array<keyof T>, m?: Maraquia): Promise<Array<T>>;
     m: Maraquia;
-    [KEY_DATA]: {
-        [name: string]: any;
-    };
+    [KEY_DATA]: Record<string, any>;
     [KEY_VALUES]: Map<string, ObjectId | Array<ObjectId> | Promise<any> | null>;
     _id: ObjectId | null;
-    constructor(data?: {
-        [name: string]: any;
-    }, m?: Maraquia);
+    constructor(data?: Record<string, any> | null, m?: Maraquia);
     fetchField<T = BaseModel | Array<BaseModel>>(name: string, m?: Maraquia): Promise<T | null>;
     setField(name: string, value: any, _key?: Symbol | string): this;
     _validateFieldValue<T>(fieldName: string, fieldSchema: IFieldSchema, value: T): T;

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-var Maraquia_1 = require("./Maraquia");
+const Maraquia_1 = require("./Maraquia");
 exports.Maraquia = Maraquia_1.Maraquia;
 var BaseModel_1 = require("./BaseModel");
 exports.BaseModel = BaseModel_1.BaseModel;

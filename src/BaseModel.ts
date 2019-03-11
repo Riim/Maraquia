@@ -1,4 +1,4 @@
-import { ObjectId } from 'mongodb';
+import { FilterQuery, ObjectId } from 'mongodb';
 import * as prettyFormat from 'pretty-format';
 import { getDefaultMaraquiaInstance } from './getDefaultMaraquiaInstance';
 import { Maraquia } from './Maraquia';
@@ -15,13 +15,13 @@ export interface IFieldSchema {
 }
 
 export interface IIndex {
-	fields: { [name: string]: 1 | -1 } | Array<string>;
-	options?: { [name: string]: any };
+	fields: Record<string, 1 | -1> | Array<string>;
+	options?: Record<string, any>;
 }
 
 export interface ISchema {
 	collectionName?: string | null;
-	fields: { [name: string]: IFieldSchema };
+	fields: Record<string, IFieldSchema>;
 	indexes?: Array<IIndex> | null;
 }
 
@@ -35,25 +35,26 @@ let currentlyValueSetting = false;
 
 export class BaseModel {
 	static $schema: ISchema;
+
 	static [KEY_REFERENCE_FIELDS]: Set<string> | undefined;
 	static [KEY_DB_COLLECTION_INITIALIZED]: true | undefined;
 
-	static async exists(query: object, m?: Maraquia): Promise<boolean> {
+	static async exists<T = any>(query: FilterQuery<T>, m?: Maraquia): Promise<boolean> {
 		return (m || (await getDefaultMaraquiaInstance())).exists(this, query);
 	}
 
-	static async find<T extends BaseModel>(query: object, m?: Maraquia): Promise<T | null>;
+	static async find<T extends BaseModel>(query: FilterQuery<T>, m?: Maraquia): Promise<T | null>;
 	static async find<T extends BaseModel>(
-		query: object,
-		resolvedFields: Array<string>,
+		query: FilterQuery<T>,
+		resolvedFields: Array<keyof T>,
 		m?: Maraquia
 	): Promise<T | null>;
 	static async find<T extends BaseModel>(
-		query: object,
-		mOrResolvedFields?: Maraquia | Array<string>,
+		query: FilterQuery<T>,
+		mOrResolvedFields?: Maraquia | Array<keyof T>,
 		m?: Maraquia
 	): Promise<T | null> {
-		let resolvedFields: Array<string> | undefined;
+		let resolvedFields: Array<keyof T> | undefined;
 
 		if (mOrResolvedFields) {
 			if (mOrResolvedFields instanceof Maraquia) {
@@ -66,18 +67,21 @@ export class BaseModel {
 		return (m || (await getDefaultMaraquiaInstance())).find<T>(this, query, resolvedFields);
 	}
 
-	static async findAll<T extends BaseModel>(query: object, m?: Maraquia): Promise<Array<T>>;
 	static async findAll<T extends BaseModel>(
-		query: object,
-		resolvedFields: Array<string>,
+		query: FilterQuery<T>,
 		m?: Maraquia
 	): Promise<Array<T>>;
 	static async findAll<T extends BaseModel>(
-		query: object,
-		mOrResolvedFields?: Maraquia | Array<string>,
+		query: FilterQuery<T>,
+		resolvedFields: Array<keyof T>,
+		m?: Maraquia
+	): Promise<Array<T>>;
+	static async findAll<T extends BaseModel>(
+		query: FilterQuery<T>,
+		mOrResolvedFields?: Maraquia | Array<keyof T>,
 		m?: Maraquia
 	): Promise<Array<T>> {
-		let resolvedFields: Array<string> | undefined;
+		let resolvedFields: Array<keyof T> | undefined;
 
 		if (mOrResolvedFields) {
 			if (mOrResolvedFields instanceof Maraquia) {
@@ -92,16 +96,18 @@ export class BaseModel {
 
 	m: Maraquia;
 
-	[KEY_DATA]: { [name: string]: any };
+	[KEY_DATA]: Record<string, any>;
 	[KEY_VALUES]: Map<string, ObjectId | Array<ObjectId> | Promise<any> | null>;
 
 	_id: ObjectId | null;
 
-	constructor(data?: { [name: string]: any }, m?: Maraquia) {
+	constructor(data?: Record<string, any> | null, m?: Maraquia) {
 		let fieldsSchema = (this.constructor as typeof BaseModel).$schema.fields;
-		let referenceFields = (this.constructor as typeof BaseModel)[KEY_REFERENCE_FIELDS];
+		let referenceFields: Set<string>;
 
-		if (!referenceFields) {
+		if ((this.constructor as typeof BaseModel).hasOwnProperty(KEY_REFERENCE_FIELDS)) {
+			referenceFields = (this.constructor as typeof BaseModel)[KEY_REFERENCE_FIELDS]!;
+		} else {
 			referenceFields = (this.constructor as typeof BaseModel)[
 				KEY_REFERENCE_FIELDS
 			] = new Set();
@@ -146,8 +152,10 @@ export class BaseModel {
 								} else {
 									if (!((isArray ? value[0] : value) instanceof BaseModel)) {
 										value = isArray
-											? value.map((itemData: any) => new fieldType(itemData))
-											: new fieldType(value);
+											? value.map(
+													(itemData: any) => new fieldType(itemData, m)
+											  )
+											: new fieldType(value, m);
 									}
 
 									this._validateFieldValue(name, fieldSchema, value);
@@ -162,7 +170,7 @@ export class BaseModel {
 						}
 
 						value =
-							fieldSchema.default != null
+							fieldSchema.default !== undefined
 								? typeof fieldSchema.default == 'function'
 									? fieldSchema.default()
 									: fieldSchema.default
@@ -180,7 +188,7 @@ export class BaseModel {
 							this[name] = this._validateFieldValue(
 								name,
 								fieldSchema,
-								value instanceof BaseModel ? value : new fieldType(value)
+								value instanceof BaseModel ? value : new fieldType(value, m)
 							);
 
 							continue;
@@ -192,16 +200,16 @@ export class BaseModel {
 								fieldSchema,
 								value[0] instanceof BaseModel
 									? value.slice()
-									: value.map((itemData: any) => new fieldType(itemData))
+									: value.map((itemData: any) => new fieldType(itemData, m))
 							);
 
 							continue;
 						}
 					}
 				} else if (value != null) {
-					// при передаче в конструктор полей с внешними моделями поля идентификаторов
-					// забирают эти значения себе,
-					// отменяем это через `!(value[0] instanceof BaseModel)`
+					// Поле идентификатора получит значение поля с внешней моделью:
+					// `let value = data && data[fieldSchema.dbFieldName || name];`,
+					// если не отменить это проверкой: `!(value[0] instanceof BaseModel)`.
 
 					let isArray = Array.isArray(value);
 
@@ -223,7 +231,7 @@ export class BaseModel {
 				}
 
 				this[name] =
-					fieldSchema.default != null
+					fieldSchema.default !== undefined
 						? typeof fieldSchema.default == 'function'
 							? fieldSchema.default()
 							: fieldSchema.default
@@ -292,8 +300,8 @@ export class BaseModel {
 							(valuePromise[KEY_VALUE] = this._validateFieldValue(
 								name,
 								schema,
-								new fieldType(data, m) as any
-							))
+								new fieldType(data, m)
+							)) as any
 					);
 
 		valuePromise[KEY_VALUE] = value;
@@ -347,7 +355,7 @@ export class BaseModel {
 				}
 
 				value =
-					schema.default != null
+					schema.default !== undefined
 						? typeof schema.default == 'function'
 							? schema.default()
 							: schema.default
@@ -389,7 +397,7 @@ export class BaseModel {
 		}
 
 		this[_key as any] =
-			schema.default != null
+			schema.default !== undefined
 				? typeof schema.default == 'function'
 					? schema.default()
 					: schema.default
@@ -442,7 +450,7 @@ export class BaseModel {
 	toObject(): Object {
 		let schema = (this.constructor as typeof BaseModel).$schema;
 		let fieldsSchema = schema.fields;
-		let obj: { [name: string]: any } = {};
+		let obj: Record<string, any> = {};
 
 		if (!fieldsSchema._id && (schema.collectionName || this._id)) {
 			obj._id = this._id || null;

@@ -51,7 +51,7 @@ describe('create', () => {
 		expect(user.name).toBe(null);
 	});
 
-	test('поле идентификаторов получает значение если оно не наследует от BaseModel', () => {
+	test('поле идентификаторов получает значение не наследующее от BaseModel', () => {
 		@Model({
 			collectionName: 'User'
 		})
@@ -78,7 +78,7 @@ describe('create', () => {
 		expect(group.userIds![0]).toBe(user._id);
 	});
 
-	test('поле идентификаторов не получает значение если оно наследует от BaseModel', () => {
+	test('поле идентификаторов не получает значение наследующее от BaseModel', () => {
 		@Model({
 			collectionName: 'User'
 		})
@@ -102,6 +102,32 @@ describe('create', () => {
 		});
 
 		expect(group.userIds).toBe(null);
+	});
+
+	test('поле идентификатора не получает значение наследующее от BaseModel', () => {
+		@Model({
+			collectionName: 'Account'
+		})
+		class Account extends BaseModel {}
+
+		@Model({
+			collectionName: 'User'
+		})
+		class User extends BaseModel {
+			@Field({ dbFieldName: 'account' })
+			accountId: ObjectId | null;
+
+			@Field(() => Account)
+			account: Promise<Account | null>;
+		}
+
+		let account = new Account();
+
+		let user = new User({
+			account
+		});
+
+		expect(user.accountId).toBe(null);
 	});
 
 	test('создаёт встроенный документ', () => {

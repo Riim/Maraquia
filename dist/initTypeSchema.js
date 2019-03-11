@@ -4,11 +4,11 @@ function initTypeSchema(type) {
     if (type.hasOwnProperty('$schema')) {
         return type.$schema;
     }
-    var parentSchema = Object.getPrototypeOf(type).$schema;
-    var schema;
+    let parentSchema = Object.getPrototypeOf(type).$schema;
+    let schema;
     if (parentSchema) {
-        schema = type.$schema = Object.create(parentSchema);
-        schema.fields = Object.create(schema.fields);
+        schema = type.$schema = { __proto__: parentSchema };
+        schema.fields = { __proto__: schema.fields };
     }
     else {
         schema = type.$schema = { fields: {} };

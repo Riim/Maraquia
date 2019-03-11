@@ -5,8 +5,8 @@
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
   "scripts": {
-    "build": "rm -rf dist && node_modules/.bin/tsc",
-    "test": "node_modules/.bin/jest"
+    "build": "rm -rf dist && tsc",
+    "test": "jest"
   },
   "repository": {
     "type": "git",
@@ -19,23 +19,23 @@
   },
   "homepage": "https://github.com/Riim/Maraquia#readme",
   "devDependencies": {
-    "@types/debug": "0.0.30",
-    "@types/jest": "^22.2.3",
-    "@types/joi": "^13.0.8",
-    "@types/mongodb": "^3.0.18",
+    "@types/debug": "^4.1.2",
+    "@types/jest": "^24.0.11",
+    "@types/joi": "^14.3.2",
+    "@types/mongodb": "^3.1.22",
     "@types/pretty-format": "^20.0.0",
     "benchmark": "^2.1.4",
-    "jest": "^22.4.4",
-    "joi": "^13.3.0",
-    "mongoose": "^5.1.1",
+    "jest": "^24.3.1",
+    "joi": "^14.3.1",
+    "mongoose": "^5.4.18",
     "mongorito": "^3.0.4",
-    "ts-jest": "^22.4.6",
-    "typescript": "^2.8.3"
+    "ts-jest": "^24.0.0",
+    "typescript": "^3.3.3333"
   },
   "dependencies": {
-    "debug": "^3.1.0",
+    "debug": "^4.1.1",
     "mongodb": "^3.1.0-beta4",
-    "pretty-format": "^22.4.3"
+    "pretty-format": "^24.3.1"
   },
   "jest": {
     "transform": {

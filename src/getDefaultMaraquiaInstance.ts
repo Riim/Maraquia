@@ -22,7 +22,7 @@ export async function getDefaultMaraquiaInstance(): Promise<Maraquia> {
 		  };
 	let db = (await MongoClient.connect(
 		config.databaseUrl + (config.databaseUrl.slice(-1) == '/' ? '' : '/') + config.databaseName,
-		{ useNewUrlParser: true } as {}
+		{ useNewUrlParser: true }
 	)).db(config.databaseName);
 
 	return (defaultInstance = new Maraquia(db));

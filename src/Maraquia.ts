@@ -1,4 +1,4 @@
-import { Db, ObjectId } from 'mongodb';
+import { Db, FilterQuery, ObjectId } from 'mongodb';
 import {
 	BaseModel,
 	ISchema,
@@ -21,7 +21,7 @@ const currentlySavedModels = new Set<BaseModel>();
 export class Maraquia {
 	constructor(public db: Db) {}
 
-	async exists(type: typeof BaseModel, query: object): Promise<boolean> {
+	async exists<T = any>(type: typeof BaseModel, query: FilterQuery<T>): Promise<boolean> {
 		let collectionName = type.$schema.collectionName;
 
 		if (!collectionName) {
@@ -37,8 +37,8 @@ export class Maraquia {
 
 	async find<T extends BaseModel>(
 		type: typeof BaseModel,
-		query: object,
-		resolvedFields?: Array<string>
+		query: FilterQuery<T>,
+		resolvedFields?: Array<keyof T>
 	): Promise<T | null> {
 		let collectionName = type.$schema.collectionName;
 
@@ -51,10 +51,10 @@ export class Maraquia {
 		}
 
 		if (resolvedFields) {
-			let aggregationPipeline: Array<object> = [{ $match: query }, { $limit: 1 }];
+			let aggregationPipeline: Array<Object> = [{ $match: query }, { $limit: 1 }];
 
 			for (let fieldName of resolvedFields) {
-				let fieldSchema = (type as typeof BaseModel).$schema.fields[fieldName];
+				let fieldSchema = (type as typeof BaseModel).$schema.fields[fieldName as any];
 
 				if (!fieldSchema) {
 					throw new TypeError(`Field "${fieldName}" is not declared`);
@@ -98,8 +98,8 @@ export class Maraquia {
 
 	async findAll<T extends BaseModel>(
 		type: typeof BaseModel,
-		query: object,
-		resolvedFields?: Array<string>
+		query: FilterQuery<T>,
+		resolvedFields?: Array<keyof T>
 	): Promise<Array<T>> {
 		let collectionName = type.$schema.collectionName;
 
@@ -112,10 +112,10 @@ export class Maraquia {
 		}
 
 		if (resolvedFields) {
-			let aggregationPipeline: Array<object> = [{ $match: query }];
+			let aggregationPipeline: Array<Object> = [{ $match: query }];
 
 			for (let fieldName of resolvedFields) {
-				let fieldSchema = (type as typeof BaseModel).$schema.fields[fieldName];
+				let fieldSchema = (type as typeof BaseModel).$schema.fields[fieldName as any];
 
 				if (!fieldSchema) {
 					throw new TypeError(`Field "${fieldName}" is not declared`);
@@ -163,9 +163,8 @@ export class Maraquia {
 		}
 
 		let type = model.constructor as typeof BaseModel;
-		let collectionName = type.$schema.collectionName;
 
-		if (!collectionName) {
+		if (!type.$schema.collectionName) {
 			throw new TypeError('$schema.collectionName is required');
 		}
 
