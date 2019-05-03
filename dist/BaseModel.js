@@ -1,12 +1,4 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongodb_1 = require("mongodb");
 const prettyFormat = require("pretty-format");
@@ -123,74 +115,69 @@ class BaseModel {
             currentlyValueSetting = false;
         }
     }
-    static exists(query, m) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return (m || (yield getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance())).exists(this, query);
-        });
+    static async exists(query, m) {
+        return (m || (await getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance())).exists(this, query);
     }
-    static find(query, mOrResolvedFields, m) {
-        return __awaiter(this, void 0, void 0, function* () {
-            let resolvedFields;
-            if (mOrResolvedFields) {
-                if (mOrResolvedFields instanceof Maraquia_1.Maraquia) {
-                    m = mOrResolvedFields;
-                }
-                else {
-                    resolvedFields = mOrResolvedFields;
-                }
+    static async find(query, mOrResolvedFields, m) {
+        let resolvedFields;
+        if (mOrResolvedFields) {
+            if (mOrResolvedFields instanceof Maraquia_1.Maraquia) {
+                m = mOrResolvedFields;
             }
-            return (m || (yield getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance())).find(this, query, resolvedFields);
-        });
+            else {
+                resolvedFields = mOrResolvedFields;
+            }
+        }
+        return (m || (await getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance())).find(this, query, resolvedFields);
     }
-    static findAll(query, mOrResolvedFields, m) {
-        return __awaiter(this, void 0, void 0, function* () {
-            let resolvedFields;
-            if (mOrResolvedFields) {
-                if (mOrResolvedFields instanceof Maraquia_1.Maraquia) {
-                    m = mOrResolvedFields;
-                }
-                else {
-                    resolvedFields = mOrResolvedFields;
-                }
+    static async findAll(query, mOrResolvedFields, m) {
+        let resolvedFields;
+        if (mOrResolvedFields) {
+            if (mOrResolvedFields instanceof Maraquia_1.Maraquia) {
+                m = mOrResolvedFields;
             }
-            return (m || (yield getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance())).findAll(this, query, resolvedFields);
-        });
+            else {
+                resolvedFields = mOrResolvedFields;
+            }
+        }
+        return (m || (await getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance())).findAll(this, query, resolvedFields);
     }
-    fetchField(name, m) {
-        return __awaiter(this, void 0, void 0, function* () {
-            let schema = this.constructor.$schema.fields[name];
-            if (!schema) {
-                throw new TypeError(`Field "${name}" is not declared`);
-            }
-            if (!schema.type) {
-                throw new TypeError(`Field "${name}" has no type`);
-            }
-            let fieldType = schema.type();
-            let collectionName = fieldType.$schema.collectionName;
-            if (!collectionName) {
-                throw new TypeError('$schema.collectionName is required');
-            }
-            let value = this[exports.KEY_VALUES].get(name);
-            if (value instanceof Promise) {
-                return value;
-            }
-            if (!m) {
-                m = this.m || (yield getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance());
-            }
-            let valuePromise = Array.isArray(value)
-                ? m.db
-                    .collection(collectionName)
-                    .find({ _id: { $in: value } })
-                    .toArray()
-                    .then(data => (valuePromise[exports.KEY_VALUE] = this._validateFieldValue(name, schema, data.map(itemData => new fieldType(itemData, m)))))
-                : m.db
-                    .collection(collectionName)
-                    .findOne({ _id: value })
-                    .then(data => (valuePromise[exports.KEY_VALUE] = this._validateFieldValue(name, schema, new fieldType(data, m))));
-            valuePromise[exports.KEY_VALUE] = value;
-            this[exports.KEY_VALUES].set(name, valuePromise);
-            return valuePromise;
-        });
+    static async aggregate(pipeline, options, m) {
+        return (m || (await getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance())).aggregate(this, pipeline, options);
+    }
+    async fetchField(name, m) {
+        let schema = this.constructor.$schema.fields[name];
+        if (!schema) {
+            throw new TypeError(`Field "${name}" is not declared`);
+        }
+        if (!schema.type) {
+            throw new TypeError(`Field "${name}" has no type`);
+        }
+        let fieldType = schema.type();
+        let collectionName = fieldType.$schema.collectionName;
+        if (!collectionName) {
+            throw new TypeError('$schema.collectionName is required');
+        }
+        let value = this[exports.KEY_VALUES].get(name);
+        if (value instanceof Promise) {
+            return value;
+        }
+        if (!m) {
+            m = this.m || (await getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance());
+        }
+        let valuePromise = Array.isArray(value)
+            ? m.db
+                .collection(collectionName)
+                .find({ _id: { $in: value } })
+                .toArray()
+                .then(data => (valuePromise[exports.KEY_VALUE] = this._validateFieldValue(name, schema, data.map(itemData => new fieldType(itemData, m)))))
+            : m.db
+                .collection(collectionName)
+                .findOne({ _id: value })
+                .then(data => (valuePromise[exports.KEY_VALUE] = this._validateFieldValue(name, schema, new fieldType(data, m))));
+        valuePromise[exports.KEY_VALUE] = value;
+        this[exports.KEY_VALUES].set(name, valuePromise);
+        return valuePromise;
     }
     setField(name, value, _key) {
         if (_key && currentlyValueSetting) {
@@ -284,15 +271,11 @@ class BaseModel {
         }
         return value;
     }
-    save(m) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return (m || this.m || (yield getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance())).save(this);
-        });
+    async save(m) {
+        return (m || this.m || (await getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance())).save(this);
     }
-    remove(m) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return (m || this.m || (yield getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance())).remove(this);
-        });
+    async remove(m) {
+        return (m || this.m || (await getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance())).remove(this);
     }
     toObject() {
         let schema = this.constructor.$schema;

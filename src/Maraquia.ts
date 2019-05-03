@@ -1,4 +1,9 @@
-import { Db, FilterQuery, ObjectId } from 'mongodb';
+import {
+	CollectionAggregationOptions,
+	Db,
+	FilterQuery,
+	ObjectId
+	} from 'mongodb';
 import {
 	BaseModel,
 	ISchema,
@@ -51,7 +56,7 @@ export class Maraquia {
 		}
 
 		if (resolvedFields) {
-			let aggregationPipeline: Array<Object> = [{ $match: query }, { $limit: 1 }];
+			let pipeline: Array<Object> = [{ $match: query }, { $limit: 1 }];
 
 			for (let fieldName of resolvedFields) {
 				let fieldSchema = (type as typeof BaseModel).$schema.fields[fieldName as any];
@@ -74,7 +79,7 @@ export class Maraquia {
 					);
 				}
 
-				aggregationPipeline.push({
+				pipeline.push({
 					$lookup: {
 						from: fieldTypeCollectionName,
 						localField: fieldName,
@@ -86,7 +91,7 @@ export class Maraquia {
 
 			let data = (await this.db
 				.collection(collectionName)
-				.aggregate(aggregationPipeline)
+				.aggregate(pipeline)
 				.toArray())[0];
 
 			return data ? (new type(data, this) as any) : null;
@@ -112,7 +117,7 @@ export class Maraquia {
 		}
 
 		if (resolvedFields) {
-			let aggregationPipeline: Array<Object> = [{ $match: query }];
+			let pipeline: Array<Object> = [{ $match: query }];
 
 			for (let fieldName of resolvedFields) {
 				let fieldSchema = (type as typeof BaseModel).$schema.fields[fieldName as any];
@@ -135,7 +140,7 @@ export class Maraquia {
 					);
 				}
 
-				aggregationPipeline.push({
+				pipeline.push({
 					$lookup: {
 						from: fieldTypeCollectionName,
 						localField: fieldName,
@@ -147,13 +152,34 @@ export class Maraquia {
 
 			return (await this.db
 				.collection(collectionName)
-				.aggregate(aggregationPipeline)
+				.aggregate(pipeline)
 				.toArray()).map(data => new type(data, this) as any);
 		}
 
 		return (await this.db
 			.collection(collectionName)
 			.find(query)
+			.toArray()).map(data => new type(data, this) as any);
+	}
+
+	async aggregate<T extends BaseModel>(
+		type: typeof BaseModel,
+		pipeline?: Array<Object>,
+		options?: CollectionAggregationOptions
+	): Promise<Array<T>> {
+		let collectionName = type.$schema.collectionName;
+
+		if (!collectionName) {
+			throw new TypeError('$schema.collectionName is required');
+		}
+
+		if (!type[KEY_DB_COLLECTION_INITIALIZED]) {
+			await initCollection(type, this);
+		}
+
+		return (await this.db
+			.collection(collectionName)
+			.aggregate(pipeline, options)
 			.toArray()).map(data => new type(data, this) as any);
 	}
 
