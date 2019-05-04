@@ -455,16 +455,20 @@ export class BaseModel {
 	beforeRemove: (() => Promise<any> | void) | undefined;
 	afterRemove: (() => Promise<any> | void) | undefined;
 
-	toObject(): Object {
+	toObject(fields?: Record<string, true | Record<string, true | Record<string, any>>>): Object {
 		let schema = (this.constructor as typeof BaseModel).$schema;
 		let fieldsSchema = schema.fields;
 		let obj: Record<string, any> = {};
 
-		if (!fieldsSchema._id && (schema.collectionName || this._id)) {
+		if (!fieldsSchema._id && schema.collectionName && (!fields || fields._id)) {
 			obj._id = this._id || null;
 		}
 
 		for (let name in fieldsSchema) {
+			if (fields && !fields[name]) {
+				continue;
+			}
+
 			let value;
 
 			if (fieldsSchema[name].type && fieldsSchema[name].type!().$schema.collectionName) {
@@ -478,11 +482,13 @@ export class BaseModel {
 			}
 
 			if (value instanceof BaseModel) {
-				obj[name] = value.toObject();
+				obj[name] = value.toObject(fields && (fields[name] as any));
 			} else if (Array.isArray(value)) {
 				obj[name] =
 					value.length && value[0] instanceof BaseModel
-						? value.map((model: BaseModel) => model.toObject())
+						? value.map((model: BaseModel) =>
+								model.toObject(fields && (fields[name] as any))
+						  )
 						: value;
 			} else {
 				obj[name] = value;

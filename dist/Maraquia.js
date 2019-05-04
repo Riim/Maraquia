@@ -290,9 +290,8 @@ class Maraquia {
                 await r;
             }
         }
-        let result = (await this.db
-            .collection(collectionName)
-            .remove({ _id: model._id }, true)).nRemoved == 1;
+        let result = (await this.db.collection(collectionName).deleteOne({ _id: model._id }))
+            .deletedCount == 1;
         if (model.afterRemove) {
             let r = model.afterRemove();
             if (r instanceof Promise) {

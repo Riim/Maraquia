@@ -277,14 +277,17 @@ class BaseModel {
     async remove(m) {
         return (m || this.m || (await getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance())).remove(this);
     }
-    toObject() {
+    toObject(fields) {
         let schema = this.constructor.$schema;
         let fieldsSchema = schema.fields;
         let obj = {};
-        if (!fieldsSchema._id && (schema.collectionName || this._id)) {
+        if (!fieldsSchema._id && schema.collectionName && (!fields || fields._id)) {
             obj._id = this._id || null;
         }
         for (let name in fieldsSchema) {
+            if (fields && !fields[name]) {
+                continue;
+            }
             let value;
             if (fieldsSchema[name].type && fieldsSchema[name].type().$schema.collectionName) {
                 value = this[exports.KEY_VALUES].get(name);
@@ -296,12 +299,12 @@ class BaseModel {
                 value = this[name];
             }
             if (value instanceof BaseModel) {
-                obj[name] = value.toObject();
+                obj[name] = value.toObject(fields && fields[name]);
             }
             else if (Array.isArray(value)) {
                 obj[name] =
                     value.length && value[0] instanceof BaseModel
-                        ? value.map((model) => model.toObject())
+                        ? value.map((model) => model.toObject(fields && fields[name]))
                         : value;
             }
             else {

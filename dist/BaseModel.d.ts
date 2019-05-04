@@ -48,7 +48,7 @@ export declare class BaseModel {
     afterSave: (() => Promise<any> | void) | undefined;
     beforeRemove: (() => Promise<any> | void) | undefined;
     afterRemove: (() => Promise<any> | void) | undefined;
-    toObject(): Object;
+    toObject(fields?: Record<string, true | Record<string, true | Record<string, any>>>): Object;
     inspectData(): string;
     printData(): void;
 }
