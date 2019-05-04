@@ -299,12 +299,14 @@ class BaseModel {
                 value = this[name];
             }
             if (value instanceof BaseModel) {
-                obj[name] = value.toObject(fields && fields[name]);
+                obj[name] = value.toObject(fields && typeof fields[name] == 'object' ? fields[name] : undefined);
             }
             else if (Array.isArray(value)) {
                 obj[name] =
                     value.length && value[0] instanceof BaseModel
-                        ? value.map((model) => model.toObject(fields && fields[name]))
+                        ? value.map((model) => model.toObject(fields && typeof fields[name] == 'object'
+                            ? fields[name]
+                            : undefined))
                         : value;
             }
             else {
