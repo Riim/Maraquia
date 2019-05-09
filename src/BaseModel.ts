@@ -1,6 +1,6 @@
 import { FilterQuery, ObjectId } from 'mongodb';
 import * as prettyFormat from 'pretty-format';
-import { getDefaultMaraquiaInstance } from './getDefaultMaraquiaInstance';
+import { getDefaultInstance } from './getDefaultInstance';
 import { Maraquia } from './Maraquia';
 
 export interface IFieldSchema {
@@ -40,7 +40,7 @@ export class BaseModel {
 	static [KEY_DB_COLLECTION_INITIALIZED]: true | undefined;
 
 	static async exists<T = any>(query: FilterQuery<T>, m?: Maraquia): Promise<boolean> {
-		return (m || (await getDefaultMaraquiaInstance())).exists(this, query);
+		return (m || (await getDefaultInstance())).exists(this, query);
 	}
 
 	static async find<T extends BaseModel>(query: FilterQuery<T>, m?: Maraquia): Promise<T | null>;
@@ -64,7 +64,7 @@ export class BaseModel {
 			}
 		}
 
-		return (m || (await getDefaultMaraquiaInstance())).findOne<T>(this, query, resolvedFields);
+		return (m || (await getDefaultInstance())).findOne<T>(this, query, resolvedFields);
 	}
 
 	static async findAll<T extends BaseModel>(
@@ -91,7 +91,7 @@ export class BaseModel {
 			}
 		}
 
-		return (m || (await getDefaultMaraquiaInstance())).findAll<T>(this, query, resolvedFields);
+		return (m || (await getDefaultInstance())).findAll<T>(this, query, resolvedFields);
 	}
 
 	m: Maraquia;
@@ -276,7 +276,7 @@ export class BaseModel {
 		}
 
 		if (!m) {
-			m = this.m || (await getDefaultMaraquiaInstance());
+			m = this.m || (await getDefaultInstance());
 		}
 
 		let valuePromise: Promise<T | null> = Array.isArray(value)
@@ -435,11 +435,11 @@ export class BaseModel {
 	}
 
 	async save(m?: Maraquia): Promise<boolean> {
-		return (m || this.m || (await getDefaultMaraquiaInstance())).save(this);
+		return (m || this.m || (await getDefaultInstance())).save(this);
 	}
 
 	async remove(m?: Maraquia): Promise<boolean> {
-		return (m || this.m || (await getDefaultMaraquiaInstance())).remove(this);
+		return (m || this.m || (await getDefaultInstance())).remove(this);
 	}
 
 	beforeSave: (() => Promise<any> | void) | undefined;

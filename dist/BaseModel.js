@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongodb_1 = require("mongodb");
 const prettyFormat = require("pretty-format");
-const getDefaultMaraquiaInstance_1 = require("./getDefaultMaraquiaInstance");
+const getDefaultInstance_1 = require("./getDefaultInstance");
 const Maraquia_1 = require("./Maraquia");
 exports.KEY_REFERENCE_FIELDS = Symbol('Maraquia/BaseModel[referenceFields]');
 exports.KEY_DB_COLLECTION_INITIALIZED = Symbol('Maraquia/BaseModel[collectionInitialized]');
@@ -116,7 +116,7 @@ class BaseModel {
         }
     }
     static async exists(query, m) {
-        return (m || (await getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance())).exists(this, query);
+        return (m || (await getDefaultInstance_1.getDefaultInstance())).exists(this, query);
     }
     static async find(query, mOrResolvedFields, m) {
         let resolvedFields;
@@ -128,7 +128,7 @@ class BaseModel {
                 resolvedFields = mOrResolvedFields;
             }
         }
-        return (m || (await getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance())).findOne(this, query, resolvedFields);
+        return (m || (await getDefaultInstance_1.getDefaultInstance())).findOne(this, query, resolvedFields);
     }
     static async findAll(query, mOrResolvedFields, m) {
         let resolvedFields;
@@ -140,7 +140,7 @@ class BaseModel {
                 resolvedFields = mOrResolvedFields;
             }
         }
-        return (m || (await getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance())).findAll(this, query, resolvedFields);
+        return (m || (await getDefaultInstance_1.getDefaultInstance())).findAll(this, query, resolvedFields);
     }
     async fetchField(name, m) {
         let schema = this.constructor.$schema.fields[name];
@@ -160,7 +160,7 @@ class BaseModel {
             return value;
         }
         if (!m) {
-            m = this.m || (await getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance());
+            m = this.m || (await getDefaultInstance_1.getDefaultInstance());
         }
         let valuePromise = Array.isArray(value)
             ? m.db
@@ -269,10 +269,10 @@ class BaseModel {
         return value;
     }
     async save(m) {
-        return (m || this.m || (await getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance())).save(this);
+        return (m || this.m || (await getDefaultInstance_1.getDefaultInstance())).save(this);
     }
     async remove(m) {
-        return (m || this.m || (await getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance())).remove(this);
+        return (m || this.m || (await getDefaultInstance_1.getDefaultInstance())).remove(this);
     }
     toObject(fields) {
         let schema = this.constructor.$schema;

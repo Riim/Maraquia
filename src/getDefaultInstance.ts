@@ -5,7 +5,7 @@ import { Maraquia } from './Maraquia';
 
 let defaultInstance: Maraquia | undefined;
 
-export async function getDefaultMaraquiaInstance(): Promise<Maraquia> {
+export async function getDefaultInstance(): Promise<Maraquia> {
 	if (defaultInstance) {
 		return defaultInstance;
 	}

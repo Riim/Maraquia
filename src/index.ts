@@ -5,4 +5,4 @@ export { Model } from './decorators/Model';
 export { Field } from './decorators/Field';
 
 export { Maraquia };
-export { getDefaultMaraquiaInstance } from './getDefaultMaraquiaInstance';
+export { getDefaultInstance } from './getDefaultInstance';

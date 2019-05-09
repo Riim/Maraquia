@@ -3,11 +3,11 @@ import { ObjectId } from 'mongodb';
 import {
 	BaseModel,
 	Field,
-	getDefaultMaraquiaInstance,
+	getDefaultInstance,
 	Model
 	} from '../src';
 
-afterEach(() => getDefaultMaraquiaInstance().then(m => m.db.dropDatabase()));
+afterEach(() => getDefaultInstance().then(m => m.db.dropDatabase()));
 
 describe('create', () => {
 	test('null по умолчанию', () => {

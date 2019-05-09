@@ -5,7 +5,7 @@ const mongodb_1 = require("mongodb");
 const path = require("path");
 const Maraquia_1 = require("./Maraquia");
 let defaultInstance;
-async function getDefaultMaraquiaInstance() {
+async function getDefaultInstance() {
     if (defaultInstance) {
         return defaultInstance;
     }
@@ -19,4 +19,4 @@ async function getDefaultMaraquiaInstance() {
     let db = (await mongodb_1.MongoClient.connect(config.databaseUrl + (config.databaseUrl.slice(-1) == '/' ? '' : '/') + config.databaseName, { useNewUrlParser: true })).db(config.databaseName);
     return (defaultInstance = new Maraquia_1.Maraquia(db));
 }
-exports.getDefaultMaraquiaInstance = getDefaultMaraquiaInstance;
+exports.getDefaultInstance = getDefaultInstance;
