@@ -23,6 +23,7 @@
     "@types/jest": "^24.0.12",
     "@types/joi": "^14.3.3",
     "@types/mongodb": "^3.1.26",
+    "@types/pluralize": "0.0.29",
     "@types/pretty-format": "^20.0.1",
     "benchmark": "^2.1.4",
     "jest": "^24.8.0",
@@ -35,6 +36,7 @@
   "dependencies": {
     "debug": "^4.1.1",
     "mongodb": "^3.2.4",
+    "pluralize": "^7.0.0",
     "pretty-format": "^24.8.0"
   },
   "jest": {

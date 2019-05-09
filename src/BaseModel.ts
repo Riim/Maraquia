@@ -1,4 +1,5 @@
 import { FilterQuery, ObjectId } from 'mongodb';
+import { isSingular } from 'pluralize';
 import * as prettyFormat from 'pretty-format';
 import { getDefaultInstance } from './getDefaultInstance';
 import { IFindOptions, Maraquia } from './Maraquia';
@@ -148,6 +149,11 @@ export class BaseModel {
 													(itemData: any) => new fieldType(itemData, m)
 											  )
 											: new fieldType(value, m);
+
+										if (isArray && value.length == 1 && isSingular(name)) {
+											value = value[0];
+											data![fieldSchema.dbFieldName || name] = value;
+										}
 									}
 
 									this._validateFieldValue(name, fieldSchema, value);
