@@ -244,6 +244,11 @@ export class BaseModel {
 		}
 	}
 
+	use(m: Maraquia): this {
+		this.m = m;
+		return this;
+	}
+
 	async fetchField<T = BaseModel | Array<BaseModel>>(
 		name: keyof this,
 		m?: Maraquia
