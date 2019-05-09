@@ -50,7 +50,7 @@ export class BaseModel {
 		return (this._m || (await getDefaultInstance())).exists(this, query);
 	}
 
-	static async find<T extends BaseModel>(
+	static async findOne<T extends BaseModel>(
 		query: FilterQuery<T>,
 		resolvedFields?: Array<keyof T>
 	): Promise<T | null> {

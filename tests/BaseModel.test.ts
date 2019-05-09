@@ -635,7 +635,7 @@ describe('fetch', () => {
 
 		await owner.save();
 
-		let foundCopy = (await Pet.find<Pet>({}))!;
+		let foundCopy = (await Pet.findOne<Pet>({}))!;
 
 		await foundCopy.owner;
 
@@ -681,7 +681,7 @@ describe('fetch', () => {
 
 		await user.save();
 
-		let user2 = (await User.find<User>({}))!;
+		let user2 = (await User.findOne<User>({}))!;
 		let account2 = (await user2.account)!;
 
 		expect((await account2.owner)!._id!.toHexString()).toBe(user2._id!.toHexString());

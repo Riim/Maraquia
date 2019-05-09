@@ -161,7 +161,7 @@ await group1.save();
 
 Попробуем прочитать из базы что-то из ранее сохранённого:
 ```js
-let user = User.find<User>({ name: 'Dmitry' });
+let user = User.findOne<User>({ name: 'Dmitry' });
 
 console.log(user instanceof User); // true
 
@@ -215,7 +215,7 @@ class Group extends BaseModel {
 	users: Promise<Array<User> | null>;
 }
 
-let user = (await User.find<User>({ name: 'Tatoshka' }))!;
+let user = (await User.findOne<User>({ name: 'Tatoshka' }))!;
 
 // удаляем ссылки на документ
 for (let group of await Group.findAll<Group>({ _id: { $in: user.groupIds } })) {
