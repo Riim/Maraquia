@@ -41,75 +41,30 @@ export class BaseModel {
 
 	static _m: Maraquia | undefined;
 
-	static use(m: Maraquia): typeof BaseModel {
+	static use(m?: Maraquia): typeof BaseModel {
 		this._m = m;
 		return this;
 	}
 
-	static async exists<T = any>(query: FilterQuery<T>, m?: Maraquia): Promise<boolean> {
-		return (m || this._m || (await getDefaultInstance())).exists(this, query);
+	static async exists<T = any>(query: FilterQuery<T>): Promise<boolean> {
+		return (this._m || (await getDefaultInstance())).exists(this, query);
 	}
 
-	static async find<T extends BaseModel>(query: FilterQuery<T>, m?: Maraquia): Promise<T | null>;
 	static async find<T extends BaseModel>(
 		query: FilterQuery<T>,
-		resolvedFields: Array<keyof T>,
-		m?: Maraquia
-	): Promise<T | null>;
-	static async find<T extends BaseModel>(
-		query: FilterQuery<T>,
-		mOrResolvedFields?: Maraquia | Array<keyof T>,
-		m?: Maraquia
+		resolvedFields?: Array<keyof T>
 	): Promise<T | null> {
-		let resolvedFields: Array<keyof T> | undefined;
-
-		if (mOrResolvedFields) {
-			if (mOrResolvedFields instanceof Maraquia) {
-				m = mOrResolvedFields;
-			} else {
-				resolvedFields = mOrResolvedFields;
-			}
-		}
-
-		return (m || this._m || (await getDefaultInstance())).findOne<T>(
-			this,
-			query,
-			resolvedFields
-		);
+		return (this._m || (await getDefaultInstance())).findOne<T>(this, query, resolvedFields);
 	}
 
 	static async findAll<T extends BaseModel>(
 		query: FilterQuery<T>,
-		m?: Maraquia
-	): Promise<Array<T>>;
-	static async findAll<T extends BaseModel>(
-		query: FilterQuery<T>,
-		resolvedFields: Array<keyof T>,
-		m?: Maraquia
-	): Promise<Array<T>>;
-	static async findAll<T extends BaseModel>(
-		query: FilterQuery<T>,
-		mOrResolvedFields?: Maraquia | Array<keyof T>,
-		m?: Maraquia
+		resolvedFields?: Array<keyof T>
 	): Promise<Array<T>> {
-		let resolvedFields: Array<keyof T> | undefined;
-
-		if (mOrResolvedFields) {
-			if (mOrResolvedFields instanceof Maraquia) {
-				m = mOrResolvedFields;
-			} else {
-				resolvedFields = mOrResolvedFields;
-			}
-		}
-
-		return (m || this._m || (await getDefaultInstance())).findAll<T>(
-			this,
-			query,
-			resolvedFields
-		);
+		return (this._m || (await getDefaultInstance())).findAll<T>(this, query, resolvedFields);
 	}
 
-	m: Maraquia;
+	m: Maraquia | undefined;
 
 	[KEY_DATA]: Record<string, any>;
 	[KEY_VALUES]: Map<string, ObjectId | Array<ObjectId> | Promise<any> | null>;
@@ -259,15 +214,12 @@ export class BaseModel {
 		}
 	}
 
-	use(m: Maraquia): this {
+	use(m?: Maraquia): this {
 		this.m = m;
 		return this;
 	}
 
-	async fetchField<T = BaseModel | Array<BaseModel>>(
-		name: keyof this,
-		m?: Maraquia
-	): Promise<T | null> {
+	async fetchField<T = BaseModel | Array<BaseModel>>(name: keyof this): Promise<T | null> {
 		let schema = (this.constructor as typeof BaseModel).$schema.fields[name as any];
 
 		if (!schema) {
@@ -295,10 +247,7 @@ export class BaseModel {
 			return value;
 		}
 
-		if (!m) {
-			m = this.m || (this.constructor as typeof BaseModel)._m || (await getDefaultInstance());
-		}
-
+		let m = this.m || (this.constructor as typeof BaseModel)._m || (await getDefaultInstance());
 		let valuePromise: Promise<T | null> = Array.isArray(value)
 			? m.db
 					.collection(collectionName!)
@@ -454,18 +403,16 @@ export class BaseModel {
 		return value;
 	}
 
-	async save(m?: Maraquia): Promise<boolean> {
+	async save(): Promise<boolean> {
 		return (
-			m ||
 			this.m ||
 			(this.constructor as typeof BaseModel)._m ||
 			(await getDefaultInstance())
 		).save(this);
 	}
 
-	async remove(m?: Maraquia): Promise<boolean> {
+	async remove(): Promise<boolean> {
 		return (
-			m ||
 			this.m ||
 			(this.constructor as typeof BaseModel)._m ||
 			(await getDefaultInstance())
