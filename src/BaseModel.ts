@@ -1,7 +1,7 @@
 import { FilterQuery, ObjectId } from 'mongodb';
 import * as prettyFormat from 'pretty-format';
 import { getDefaultInstance } from './getDefaultInstance';
-import { Maraquia } from './Maraquia';
+import { IFindOptions, Maraquia } from './Maraquia';
 
 export interface IFieldSchema {
 	dbFieldName?: string;
@@ -39,15 +39,37 @@ export class BaseModel {
 	static [KEY_REFERENCE_FIELDS]: Set<string> | undefined;
 	static [KEY_DB_COLLECTION_INITIALIZED]: true | undefined;
 
-	static _m: Maraquia | undefined;
+	static _m: Maraquia;
 
-	static use(m?: Maraquia): typeof BaseModel {
+	static use(m: Maraquia): typeof BaseModel {
 		this._m = m;
 		return this;
 	}
 
 	static async exists<T = any>(query: FilterQuery<T>): Promise<boolean> {
 		return (this._m || (await getDefaultInstance())).exists(this, query);
+	}
+
+	static async find<T extends BaseModel>(
+		query: FilterQuery<T>,
+		limit?: number,
+		resolvedFields?: Array<keyof T>
+	): Promise<Array<T>>;
+	static async find<T extends BaseModel>(
+		query: FilterQuery<T>,
+		options?: IFindOptions<T>
+	): Promise<Array<T>>;
+	static async find<T extends BaseModel>(
+		query: FilterQuery<T>,
+		limitOrOptions?: number | IFindOptions<T>,
+		resolvedFields?: Array<keyof T>
+	): Promise<Array<T>> {
+		return (this._m || (await getDefaultInstance())).find<T>(
+			this,
+			query,
+			limitOrOptions as any,
+			resolvedFields
+		);
 	}
 
 	static async findOne<T extends BaseModel>(
@@ -64,7 +86,7 @@ export class BaseModel {
 		return (this._m || (await getDefaultInstance())).findAll<T>(this, query, resolvedFields);
 	}
 
-	m: Maraquia | undefined;
+	m: Maraquia;
 
 	[KEY_DATA]: Record<string, any>;
 	[KEY_VALUES]: Map<string, ObjectId | Array<ObjectId> | Promise<any> | null>;
@@ -214,7 +236,7 @@ export class BaseModel {
 		}
 	}
 
-	use(m?: Maraquia): this {
+	use(m: Maraquia): this {
 		this.m = m;
 		return this;
 	}
