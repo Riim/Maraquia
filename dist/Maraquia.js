@@ -19,7 +19,7 @@ class Maraquia {
         }
         return !!(await this.db.collection(collectionName).findOne(query));
     }
-    async find(type, query, limitOrOptions, resolvedFields, aggregationPipeline, aggregationOptions) {
+    async find(type, query, resolvedFields, options) {
         let collectionName = type.$schema.collectionName;
         if (!collectionName) {
             throw new TypeError('$schema.collectionName is required');
@@ -27,25 +27,20 @@ class Maraquia {
         if (!type[BaseModel_1.KEY_DB_COLLECTION_INITIALIZED]) {
             await initCollection_1.initCollection(type, this);
         }
-        let limit;
-        if (typeof limitOrOptions == 'number') {
-            limit = limitOrOptions !== undefined ? limitOrOptions : -1;
+        let pipeline = [];
+        if (query) {
+            pipeline.push({ $match: query });
         }
-        else if (limitOrOptions) {
-            limit = typeof limitOrOptions.limit == 'number' ? limitOrOptions.limit : -1;
-            resolvedFields = limitOrOptions.resolvedFields;
-            aggregationPipeline = limitOrOptions.aggregationPipeline;
-            aggregationOptions = limitOrOptions.aggregationOptions;
-        }
-        else {
-            limit = -1;
-        }
-        let pipeline = [{ $match: query }];
-        if (limit > -1) {
-            pipeline.push({ $limit: limit });
-        }
-        if (aggregationPipeline) {
-            pipeline.push(...aggregationPipeline);
+        if (options) {
+            if (options.sort) {
+                pipeline.push({ $sort: options.sort });
+            }
+            if (options.skip) {
+                pipeline.push({ $skip: options.skip });
+            }
+            if (options.limit) {
+                pipeline.push({ $limit: options.limit });
+            }
         }
         if (resolvedFields) {
             for (let fieldName of resolvedFields) {
@@ -73,14 +68,24 @@ class Maraquia {
         }
         return (await this.db
             .collection(collectionName)
-            .aggregate(pipeline, aggregationOptions)
+            .aggregate(pipeline)
             .toArray()).map(data => new type(data, this));
     }
     async findOne(type, query, resolvedFields) {
-        return (await this.find(type, query, 1, resolvedFields))[0];
+        return (await this.find(type, query, resolvedFields, { limit: 1 }))[0];
     }
-    async findAll(type, query, resolvedFields) {
-        return await this.find(type, query, -1, resolvedFields);
+    async aggregate(type, pipeline, options) {
+        let collectionName = type.$schema.collectionName;
+        if (!collectionName) {
+            throw new TypeError('$schema.collectionName is required');
+        }
+        if (!type[BaseModel_1.KEY_DB_COLLECTION_INITIALIZED]) {
+            await initCollection_1.initCollection(type, this);
+        }
+        return (await this.db
+            .collection(collectionName)
+            .aggregate(pipeline, options)
+            .toArray()).map(data => new type(data, this));
     }
     async save(model) {
         if (currentlySavedModels.size) {

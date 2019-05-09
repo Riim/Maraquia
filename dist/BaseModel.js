@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongodb_1 = require("mongodb");
+const pluralize_1 = require("pluralize");
 const prettyFormat = require("pretty-format");
 const getDefaultInstance_1 = require("./getDefaultInstance");
-const Maraquia_1 = require("./Maraquia");
 exports.KEY_REFERENCE_FIELDS = Symbol('Maraquia/BaseModel[referenceFields]');
 exports.KEY_DB_COLLECTION_INITIALIZED = Symbol('Maraquia/BaseModel[collectionInitialized]');
 exports.KEY_DATA = Symbol('Maraquia/BaseModel[data]');
@@ -53,6 +53,10 @@ class BaseModel {
                                         value = isArray
                                             ? value.map((itemData) => new fieldType(itemData, m))
                                             : new fieldType(value, m);
+                                        if (isArray && value.length == 1 && pluralize_1.isSingular(name)) {
+                                            value = value[0];
+                                            data[fieldSchema.dbFieldName || name] = value;
+                                        }
                                     }
                                     this._validateFieldValue(name, fieldSchema, value);
                                     let valuePromise = Promise.resolve(value);
@@ -115,34 +119,27 @@ class BaseModel {
             currentlyValueSetting = false;
         }
     }
-    static async exists(query, m) {
-        return (m || (await getDefaultInstance_1.getDefaultInstance())).exists(this, query);
+    static use(m) {
+        this._m = m;
+        return this;
     }
-    static async find(query, mOrResolvedFields, m) {
-        let resolvedFields;
-        if (mOrResolvedFields) {
-            if (mOrResolvedFields instanceof Maraquia_1.Maraquia) {
-                m = mOrResolvedFields;
-            }
-            else {
-                resolvedFields = mOrResolvedFields;
-            }
-        }
-        return (m || (await getDefaultInstance_1.getDefaultInstance())).findOne(this, query, resolvedFields);
+    static async exists(query) {
+        return (this._m || (await getDefaultInstance_1.getDefaultInstance())).exists(this, query);
     }
-    static async findAll(query, mOrResolvedFields, m) {
-        let resolvedFields;
-        if (mOrResolvedFields) {
-            if (mOrResolvedFields instanceof Maraquia_1.Maraquia) {
-                m = mOrResolvedFields;
-            }
-            else {
-                resolvedFields = mOrResolvedFields;
-            }
-        }
-        return (m || (await getDefaultInstance_1.getDefaultInstance())).findAll(this, query, resolvedFields);
+    static async find(query, resolvedFields, options) {
+        return (this._m || (await getDefaultInstance_1.getDefaultInstance())).find(this, query, resolvedFields, options);
     }
-    async fetchField(name, m) {
+    static async findOne(query, resolvedFields) {
+        return (this._m || (await getDefaultInstance_1.getDefaultInstance())).findOne(this, query, resolvedFields);
+    }
+    static async aggregate(pipeline, options) {
+        return (this._m || (await getDefaultInstance_1.getDefaultInstance())).aggregate(this, pipeline, options);
+    }
+    use(m) {
+        this.m = m;
+        return this;
+    }
+    async fetchField(name) {
         let schema = this.constructor.$schema.fields[name];
         if (!schema) {
             throw new TypeError(`Field "${name}" is not declared`);
@@ -159,9 +156,7 @@ class BaseModel {
         if (value instanceof Promise) {
             return value;
         }
-        if (!m) {
-            m = this.m || (await getDefaultInstance_1.getDefaultInstance());
-        }
+        let m = this.m || this.constructor._m || (await getDefaultInstance_1.getDefaultInstance());
         let valuePromise = Array.isArray(value)
             ? m.db
                 .collection(collectionName)
@@ -268,11 +263,15 @@ class BaseModel {
         }
         return value;
     }
-    async save(m) {
-        return (m || this.m || (await getDefaultInstance_1.getDefaultInstance())).save(this);
+    async save() {
+        return (this.m ||
+            this.constructor._m ||
+            (await getDefaultInstance_1.getDefaultInstance())).save(this);
     }
-    async remove(m) {
-        return (m || this.m || (await getDefaultInstance_1.getDefaultInstance())).remove(this);
+    async remove() {
+        return (this.m ||
+            this.constructor._m ||
+            (await getDefaultInstance_1.getDefaultInstance())).remove(this);
     }
     toObject(fields) {
         let schema = this.constructor.$schema;
