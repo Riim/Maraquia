@@ -1,4 +1,4 @@
-import { FilterQuery, ObjectId } from 'mongodb';
+import { CollectionAggregationOptions, FilterQuery, ObjectId } from 'mongodb';
 import { isSingular } from 'pluralize';
 import * as prettyFormat from 'pretty-format';
 import { getDefaultInstance } from './getDefaultInstance';
@@ -52,39 +52,30 @@ export class BaseModel {
 	}
 
 	static async find<T extends BaseModel>(
-		query: FilterQuery<T>,
-		limit?: number,
-		resolvedFields?: Array<keyof T>
-	): Promise<Array<T>>;
-	static async find<T extends BaseModel>(
-		query: FilterQuery<T>,
-		options?: IFindOptions<T>
-	): Promise<Array<T>>;
-	static async find<T extends BaseModel>(
-		query: FilterQuery<T>,
-		limitOrOptions?: number | IFindOptions<T>,
-		resolvedFields?: Array<keyof T>
+		query?: FilterQuery<T> | null,
+		resolvedFields?: Array<keyof T> | null,
+		options?: IFindOptions
 	): Promise<Array<T>> {
 		return (this._m || (await getDefaultInstance())).find<T>(
 			this,
 			query,
-			limitOrOptions as any,
-			resolvedFields
+			resolvedFields,
+			options
 		);
 	}
 
 	static async findOne<T extends BaseModel>(
-		query: FilterQuery<T>,
+		query?: FilterQuery<T> | null,
 		resolvedFields?: Array<keyof T>
 	): Promise<T | null> {
 		return (this._m || (await getDefaultInstance())).findOne<T>(this, query, resolvedFields);
 	}
 
-	static async findAll<T extends BaseModel>(
-		query: FilterQuery<T>,
-		resolvedFields?: Array<keyof T>
+	static async aggregate<T extends BaseModel>(
+		pipeline?: Array<Object>,
+		options?: CollectionAggregationOptions
 	): Promise<Array<T>> {
-		return (this._m || (await getDefaultInstance())).findAll<T>(this, query, resolvedFields);
+		return (this._m || (await getDefaultInstance())).aggregate<T>(this, pipeline, options);
 	}
 
 	m: Maraquia;

@@ -21,13 +21,10 @@ export interface IQuery {
 	$unset?: { [keypath: string]: any };
 }
 
-export interface IFindOptions<T> {
+export interface IFindOptions {
 	sort?: Record<string, number>;
 	skip?: number;
 	limit?: number;
-	resolvedFields?: Array<keyof T>;
-	aggregationPipeline?: Array<Object>;
-	aggregationOptions?: CollectionAggregationOptions;
 }
 
 const currentlySavedModels = new Set<BaseModel>();
@@ -51,20 +48,9 @@ export class Maraquia {
 
 	async find<T extends BaseModel>(
 		type: typeof BaseModel,
-		query: FilterQuery<T>,
-		limit?: number,
-		resolvedFields?: Array<keyof T>
-	): Promise<Array<T>>;
-	async find<T extends BaseModel>(
-		type: typeof BaseModel,
-		query: FilterQuery<T>,
-		options?: IFindOptions<T>
-	): Promise<Array<T>>;
-	async find<T extends BaseModel>(
-		type: typeof BaseModel,
-		query: FilterQuery<T>,
-		limitOrOptions?: number | IFindOptions<T>,
-		resolvedFields?: Array<keyof T>
+		query?: FilterQuery<T> | null,
+		resolvedFields?: Array<keyof T> | null,
+		options?: IFindOptions
 	): Promise<Array<T>> {
 		let collectionName = type.$schema.collectionName;
 
@@ -76,35 +62,22 @@ export class Maraquia {
 			await initCollection(type, this);
 		}
 
-		let limit: number;
-		let aggregationPipeline: Array<Object> | undefined;
-		let aggregationOptions: CollectionAggregationOptions | undefined;
-		let pipeline: Array<Object> = [{ $match: query }];
+		let pipeline: Array<Object> = [];
 
-		if (typeof limitOrOptions == 'number') {
-			limit = limitOrOptions !== undefined ? limitOrOptions : -1;
-		} else if (limitOrOptions) {
-			limit = typeof limitOrOptions.limit == 'number' ? limitOrOptions.limit : -1;
-			resolvedFields = limitOrOptions.resolvedFields;
-			aggregationPipeline = limitOrOptions.aggregationPipeline;
-			aggregationOptions = limitOrOptions.aggregationOptions;
-
-			if (limitOrOptions.sort) {
-				pipeline.push({ $sort: limitOrOptions.sort });
-			}
-			if (limitOrOptions.skip) {
-				pipeline.push({ $skip: limitOrOptions.skip });
-			}
-		} else {
-			limit = -1;
+		if (query) {
+			pipeline.push({ $match: query });
 		}
 
-		if (limit >= 0) {
-			pipeline.push({ $limit: limit });
-		}
-
-		if (aggregationPipeline) {
-			pipeline.push(...aggregationPipeline);
+		if (options) {
+			if (options.sort) {
+				pipeline.push({ $sort: options.sort });
+			}
+			if (options.skip) {
+				pipeline.push({ $skip: options.skip });
+			}
+			if (options.limit) {
+				pipeline.push({ $limit: options.limit });
+			}
 		}
 
 		if (resolvedFields) {
@@ -142,24 +115,37 @@ export class Maraquia {
 
 		return (await this.db
 			.collection(collectionName)
-			.aggregate(pipeline, aggregationOptions)
+			.aggregate(pipeline)
 			.toArray()).map(data => new type(data, this) as any);
 	}
 
 	async findOne<T extends BaseModel>(
 		type: typeof BaseModel,
-		query: FilterQuery<T>,
+		query?: FilterQuery<T> | null,
 		resolvedFields?: Array<keyof T>
 	): Promise<T | null> {
-		return (await this.find(type, query, 1, resolvedFields))[0];
+		return (await this.find(type, query, resolvedFields, { limit: 1 }))[0];
 	}
 
-	async findAll<T extends BaseModel>(
+	async aggregate<T extends BaseModel>(
 		type: typeof BaseModel,
-		query: FilterQuery<T>,
-		resolvedFields?: Array<keyof T>
+		pipeline?: Array<Object>,
+		options?: CollectionAggregationOptions
 	): Promise<Array<T>> {
-		return await this.find(type, query, -1, resolvedFields);
+		let collectionName = type.$schema.collectionName;
+
+		if (!collectionName) {
+			throw new TypeError('$schema.collectionName is required');
+		}
+
+		if (!type[KEY_DB_COLLECTION_INITIALIZED]) {
+			await initCollection(type, this);
+		}
+
+		return (await this.db
+			.collection(collectionName)
+			.aggregate(pipeline, options)
+			.toArray()).map(data => new type(data, this) as any);
 	}
 
 	async save(model: BaseModel): Promise<boolean> {

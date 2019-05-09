@@ -218,7 +218,7 @@ class Group extends BaseModel {
 let user = (await User.findOne<User>({ name: 'Tatoshka' }))!;
 
 // удаляем ссылки на документ
-for (let group of await Group.findAll<Group>({ _id: { $in: user.groupIds } })) {
+for (let group of await Group.find<Group>({ _id: { $in: user.groupIds } })) {
 	group.userIds = group.userIds!.filter(
 		userId => userId.toHexString() != user._id!.toHexString()
 	);
