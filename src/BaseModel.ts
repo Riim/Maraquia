@@ -1,4 +1,4 @@
-import { CollectionAggregationOptions, FilterQuery, ObjectId } from 'mongodb';
+import { FilterQuery, ObjectId } from 'mongodb';
 import * as prettyFormat from 'pretty-format';
 import { getDefaultMaraquiaInstance } from './getDefaultMaraquiaInstance';
 import { Maraquia } from './Maraquia';
@@ -64,7 +64,7 @@ export class BaseModel {
 			}
 		}
 
-		return (m || (await getDefaultMaraquiaInstance())).find<T>(this, query, resolvedFields);
+		return (m || (await getDefaultMaraquiaInstance())).findOne<T>(this, query, resolvedFields);
 	}
 
 	static async findAll<T extends BaseModel>(
@@ -92,14 +92,6 @@ export class BaseModel {
 		}
 
 		return (m || (await getDefaultMaraquiaInstance())).findAll<T>(this, query, resolvedFields);
-	}
-
-	static async aggregate<T extends BaseModel>(
-		pipeline?: Array<Object>,
-		options?: CollectionAggregationOptions,
-		m?: Maraquia
-	): Promise<Array<T>> {
-		return (m || (await getDefaultMaraquiaInstance())).aggregate<T>(this, pipeline, options);
 	}
 
 	m: Maraquia;

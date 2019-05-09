@@ -128,7 +128,7 @@ class BaseModel {
                 resolvedFields = mOrResolvedFields;
             }
         }
-        return (m || (await getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance())).find(this, query, resolvedFields);
+        return (m || (await getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance())).findOne(this, query, resolvedFields);
     }
     static async findAll(query, mOrResolvedFields, m) {
         let resolvedFields;
@@ -141,9 +141,6 @@ class BaseModel {
             }
         }
         return (m || (await getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance())).findAll(this, query, resolvedFields);
-    }
-    static async aggregate(pipeline, options, m) {
-        return (m || (await getDefaultMaraquiaInstance_1.getDefaultMaraquiaInstance())).aggregate(this, pipeline, options);
     }
     async fetchField(name, m) {
         let schema = this.constructor.$schema.fields[name];

@@ -21,6 +21,13 @@ export interface IQuery {
 	$unset?: { [keypath: string]: any };
 }
 
+export interface IFindOptions<T> {
+	limit?: number;
+	resolvedFields?: Array<keyof T>;
+	aggregationPipeline?: Array<Object>;
+	aggregationOptions?: CollectionAggregationOptions;
+}
+
 const currentlySavedModels = new Set<BaseModel>();
 
 export class Maraquia {
@@ -43,8 +50,24 @@ export class Maraquia {
 	async find<T extends BaseModel>(
 		type: typeof BaseModel,
 		query: FilterQuery<T>,
-		resolvedFields?: Array<keyof T>
-	): Promise<T | null> {
+		limit?: number,
+		resolvedFields?: Array<keyof T>,
+		aggregationPipeline?: Array<Object>,
+		aggregationOptions?: CollectionAggregationOptions
+	): Promise<Array<T>>;
+	async find<T extends BaseModel>(
+		type: typeof BaseModel,
+		query: FilterQuery<T>,
+		options?: IFindOptions<T>
+	): Promise<Array<T>>;
+	async find<T extends BaseModel>(
+		type: typeof BaseModel,
+		query: FilterQuery<T>,
+		limitOrOptions?: number | IFindOptions<T>,
+		resolvedFields?: Array<keyof T>,
+		aggregationPipeline?: Array<Object>,
+		aggregationOptions?: CollectionAggregationOptions
+	): Promise<Array<T>> {
 		let collectionName = type.$schema.collectionName;
 
 		if (!collectionName) {
@@ -55,9 +78,30 @@ export class Maraquia {
 			await initCollection(type, this);
 		}
 
-		if (resolvedFields) {
-			let pipeline: Array<Object> = [{ $match: query }, { $limit: 1 }];
+		let limit: number;
 
+		if (typeof limitOrOptions == 'number') {
+			limit = limitOrOptions !== undefined ? limitOrOptions : -1;
+		} else if (limitOrOptions) {
+			limit = typeof limitOrOptions.limit == 'number' ? limitOrOptions.limit : -1;
+			resolvedFields = limitOrOptions.resolvedFields;
+			aggregationPipeline = limitOrOptions.aggregationPipeline;
+			aggregationOptions = limitOrOptions.aggregationOptions;
+		} else {
+			limit = -1;
+		}
+
+		let pipeline: Array<Object> = [{ $match: query }];
+
+		if (limit > -1) {
+			pipeline.push({ $limit: limit });
+		}
+
+		if (aggregationPipeline) {
+			pipeline.push(...aggregationPipeline);
+		}
+
+		if (resolvedFields) {
 			for (let fieldName of resolvedFields) {
 				let fieldSchema = (type as typeof BaseModel).$schema.fields[fieldName as any];
 
@@ -88,17 +132,20 @@ export class Maraquia {
 					}
 				});
 			}
-
-			let data = (await this.db
-				.collection(collectionName)
-				.aggregate(pipeline)
-				.toArray())[0];
-
-			return data ? (new type(data, this) as any) : null;
 		}
 
-		let data = await this.db.collection(collectionName).findOne(query);
-		return data ? (new type(data, this) as any) : null;
+		return (await this.db
+			.collection(collectionName)
+			.aggregate(pipeline, aggregationOptions)
+			.toArray()).map(data => new type(data, this) as any);
+	}
+
+	async findOne<T extends BaseModel>(
+		type: typeof BaseModel,
+		query: FilterQuery<T>,
+		resolvedFields?: Array<keyof T>
+	): Promise<T | null> {
+		return (await this.find(type, query, 1, resolvedFields))[0];
 	}
 
 	async findAll<T extends BaseModel>(
@@ -106,81 +153,7 @@ export class Maraquia {
 		query: FilterQuery<T>,
 		resolvedFields?: Array<keyof T>
 	): Promise<Array<T>> {
-		let collectionName = type.$schema.collectionName;
-
-		if (!collectionName) {
-			throw new TypeError('$schema.collectionName is required');
-		}
-
-		if (!type[KEY_DB_COLLECTION_INITIALIZED]) {
-			await initCollection(type, this);
-		}
-
-		if (resolvedFields) {
-			let pipeline: Array<Object> = [{ $match: query }];
-
-			for (let fieldName of resolvedFields) {
-				let fieldSchema = (type as typeof BaseModel).$schema.fields[fieldName as any];
-
-				if (!fieldSchema) {
-					throw new TypeError(`Field "${fieldName}" is not declared`);
-				}
-
-				let fieldType = fieldSchema.type;
-
-				if (!fieldType) {
-					throw new TypeError(`Field "${fieldName}" has not type`);
-				}
-
-				let fieldTypeCollectionName = fieldType().$schema.collectionName;
-
-				if (!fieldTypeCollectionName) {
-					throw new TypeError(
-						`$schema.collectionName of type "${fieldType().name}" is required`
-					);
-				}
-
-				pipeline.push({
-					$lookup: {
-						from: fieldTypeCollectionName,
-						localField: fieldName,
-						foreignField: '_id',
-						as: fieldName
-					}
-				});
-			}
-
-			return (await this.db
-				.collection(collectionName)
-				.aggregate(pipeline)
-				.toArray()).map(data => new type(data, this) as any);
-		}
-
-		return (await this.db
-			.collection(collectionName)
-			.find(query)
-			.toArray()).map(data => new type(data, this) as any);
-	}
-
-	async aggregate<T extends BaseModel>(
-		type: typeof BaseModel,
-		pipeline?: Array<Object>,
-		options?: CollectionAggregationOptions
-	): Promise<Array<T>> {
-		let collectionName = type.$schema.collectionName;
-
-		if (!collectionName) {
-			throw new TypeError('$schema.collectionName is required');
-		}
-
-		if (!type[KEY_DB_COLLECTION_INITIALIZED]) {
-			await initCollection(type, this);
-		}
-
-		return (await this.db
-			.collection(collectionName)
-			.aggregate(pipeline, options)
-			.toArray()).map(data => new type(data, this) as any);
+		return await this.find(type, query, -1, resolvedFields);
 	}
 
 	async save(model: BaseModel): Promise<boolean> {

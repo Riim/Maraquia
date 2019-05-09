@@ -1,4 +1,4 @@
-import { CollectionAggregationOptions, FilterQuery, ObjectId } from 'mongodb';
+import { FilterQuery, ObjectId } from 'mongodb';
 import { Maraquia } from './Maraquia';
 export interface IFieldSchema {
     dbFieldName?: string;
@@ -33,7 +33,6 @@ export declare class BaseModel {
     static find<T extends BaseModel>(query: FilterQuery<T>, resolvedFields: Array<keyof T>, m?: Maraquia): Promise<T | null>;
     static findAll<T extends BaseModel>(query: FilterQuery<T>, m?: Maraquia): Promise<Array<T>>;
     static findAll<T extends BaseModel>(query: FilterQuery<T>, resolvedFields: Array<keyof T>, m?: Maraquia): Promise<Array<T>>;
-    static aggregate<T extends BaseModel>(pipeline?: Array<Object>, options?: CollectionAggregationOptions, m?: Maraquia): Promise<Array<T>>;
     m: Maraquia;
     [KEY_DATA]: Record<string, any>;
     [KEY_VALUES]: Map<string, ObjectId | Array<ObjectId> | Promise<any> | null>;
