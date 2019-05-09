@@ -39,8 +39,15 @@ export class BaseModel {
 	static [KEY_REFERENCE_FIELDS]: Set<string> | undefined;
 	static [KEY_DB_COLLECTION_INITIALIZED]: true | undefined;
 
+	static _m: Maraquia | undefined;
+
+	static use(m: Maraquia): typeof BaseModel {
+		this._m = m;
+		return this;
+	}
+
 	static async exists<T = any>(query: FilterQuery<T>, m?: Maraquia): Promise<boolean> {
-		return (m || (await getDefaultInstance())).exists(this, query);
+		return (m || this._m || (await getDefaultInstance())).exists(this, query);
 	}
 
 	static async find<T extends BaseModel>(query: FilterQuery<T>, m?: Maraquia): Promise<T | null>;
@@ -64,7 +71,11 @@ export class BaseModel {
 			}
 		}
 
-		return (m || (await getDefaultInstance())).findOne<T>(this, query, resolvedFields);
+		return (m || this._m || (await getDefaultInstance())).findOne<T>(
+			this,
+			query,
+			resolvedFields
+		);
 	}
 
 	static async findAll<T extends BaseModel>(
@@ -91,7 +102,11 @@ export class BaseModel {
 			}
 		}
 
-		return (m || (await getDefaultInstance())).findAll<T>(this, query, resolvedFields);
+		return (m || this._m || (await getDefaultInstance())).findAll<T>(
+			this,
+			query,
+			resolvedFields
+		);
 	}
 
 	m: Maraquia;
@@ -281,7 +296,7 @@ export class BaseModel {
 		}
 
 		if (!m) {
-			m = this.m || (await getDefaultInstance());
+			m = this.m || (this.constructor as typeof BaseModel)._m || (await getDefaultInstance());
 		}
 
 		let valuePromise: Promise<T | null> = Array.isArray(value)
@@ -440,11 +455,21 @@ export class BaseModel {
 	}
 
 	async save(m?: Maraquia): Promise<boolean> {
-		return (m || this.m || (await getDefaultInstance())).save(this);
+		return (
+			m ||
+			this.m ||
+			(this.constructor as typeof BaseModel)._m ||
+			(await getDefaultInstance())
+		).save(this);
 	}
 
 	async remove(m?: Maraquia): Promise<boolean> {
-		return (m || this.m || (await getDefaultInstance())).remove(this);
+		return (
+			m ||
+			this.m ||
+			(this.constructor as typeof BaseModel)._m ||
+			(await getDefaultInstance())
+		).remove(this);
 	}
 
 	beforeSave: (() => Promise<any> | void) | undefined;
