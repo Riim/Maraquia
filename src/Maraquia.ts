@@ -149,7 +149,7 @@ export class Maraquia {
 	}
 
 	async save(model: BaseModel): Promise<boolean> {
-		if (currentlySavedModels.size) {
+		if (currentlySavedModels.has(model)) {
 			throw new Error('Cannot save when saving');
 		}
 
@@ -168,7 +168,7 @@ export class Maraquia {
 		} catch (err) {
 			throw err;
 		} finally {
-			currentlySavedModels.clear();
+			currentlySavedModels.delete(model);
 		}
 
 		return true;
