@@ -88,7 +88,7 @@ class Maraquia {
             .toArray()).map(data => new type(data, this));
     }
     async save(model) {
-        if (currentlySavedModels.size) {
+        if (currentlySavedModels.has(model)) {
             throw new Error('Cannot save when saving');
         }
         let type = model.constructor;
@@ -105,7 +105,7 @@ class Maraquia {
             throw err;
         }
         finally {
-            currentlySavedModels.clear();
+            currentlySavedModels.delete(model);
         }
         return true;
     }
