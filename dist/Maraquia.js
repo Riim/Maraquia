@@ -88,9 +88,6 @@ class Maraquia {
             .toArray()).map(data => new type(data, this));
     }
     async save(model) {
-        if (currentlySavedModels.size) {
-            throw new Error('Cannot save when saving');
-        }
         let type = model.constructor;
         if (!type.$schema.collectionName) {
             throw new TypeError('$schema.collectionName is required');
