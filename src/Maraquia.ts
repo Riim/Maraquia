@@ -149,10 +149,6 @@ export class Maraquia {
 	}
 
 	async save(model: BaseModel): Promise<boolean> {
-		if (currentlySavedModels.has(model)) {
-			throw new Error('Cannot save when saving');
-		}
-
 		let type = model.constructor as typeof BaseModel;
 
 		if (!type.$schema.collectionName) {
@@ -168,7 +164,7 @@ export class Maraquia {
 		} catch (err) {
 			throw err;
 		} finally {
-			currentlySavedModels.delete(model);
+			currentlySavedModels.clear();
 		}
 
 		return true;
