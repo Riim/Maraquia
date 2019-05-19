@@ -4,6 +4,8 @@ import * as prettyFormat from 'pretty-format';
 import { getDefaultInstance } from './getDefaultInstance';
 import { IFindOptions, Maraquia } from './Maraquia';
 
+const hasOwn = Object.prototype.hasOwnProperty;
+
 export interface IFieldSchema {
 	dbFieldName?: string;
 	type?: () => typeof BaseModel;
@@ -97,10 +99,12 @@ export class BaseModel {
 			] = new Set();
 
 			for (let name in fieldsSchema) {
-				let fieldSchema = fieldsSchema[name];
+				if (hasOwn.call(fieldsSchema, name)) {
+					let fieldSchema = fieldsSchema[name];
 
-				if (fieldSchema.type && fieldSchema.type().$schema.collectionName) {
-					referenceFields.add(fieldSchema.dbFieldName || name);
+					if (fieldSchema.type && fieldSchema.type().$schema.collectionName) {
+						referenceFields.add(fieldSchema.dbFieldName || name);
+					}
 				}
 			}
 		}
@@ -120,6 +124,10 @@ export class BaseModel {
 
 		try {
 			for (let name in fieldsSchema) {
+				if (!hasOwn.call(fieldsSchema, name)) {
+					continue;
+				}
+
 				let fieldSchema = fieldsSchema[name];
 				let value = data && data[fieldSchema.dbFieldName || name];
 
@@ -453,7 +461,7 @@ export class BaseModel {
 		}
 
 		for (let name in fieldsSchema) {
-			if (fields && !fields[name]) {
+			if ((fields && !fields[name]) || !hasOwn.call(fieldsSchema, name)) {
 				continue;
 			}
 

@@ -16,6 +16,8 @@ import { initCollection } from './initCollection';
 import { initDocument } from './initDocument';
 import { setKeypath } from './lib/setKeypath';
 
+const hasOwn = Object.prototype.hasOwnProperty;
+
 export interface IQuery {
 	$set?: { [keypath: string]: any };
 	$unset?: { [keypath: string]: any };
@@ -27,7 +29,7 @@ export interface IFindOptions {
 	limit?: number;
 }
 
-const currentlySavedModels = new Set<BaseModel>();
+const savedModels = new Set<BaseModel>();
 
 export class Maraquia {
 	constructor(public db: Db) {}
@@ -164,14 +166,14 @@ export class Maraquia {
 		} catch (err) {
 			throw err;
 		} finally {
-			currentlySavedModels.clear();
+			savedModels.clear();
 		}
 
 		return true;
 	}
 
 	async _save(model: BaseModel): Promise<boolean> {
-		currentlySavedModels.add(model);
+		savedModels.add(model);
 
 		if (model.m) {
 			if (model.m !== this) {
@@ -187,7 +189,9 @@ export class Maraquia {
 			await initDocument(this, model, schema.collectionName!);
 		}
 
-		let query = await this._save$(model, schema, model._id !== model[KEY_DATA]._id, '', {});
+		let query = await this._save$(model, schema, model._id !== model[KEY_DATA]._id, '', {
+			__proto__: null
+		} as any);
 
 		if (model.beforeSave) {
 			let r = model.beforeSave();
@@ -226,6 +230,10 @@ export class Maraquia {
 		let values = model[KEY_VALUES];
 
 		for (let name in fieldsSchema) {
+			if (!hasOwn.call(fieldsSchema, name)) {
+				continue;
+			}
+
 			let fieldSchema = fieldsSchema[name];
 			let fieldKeypath = (keypath ? keypath + '.' : '') + (fieldSchema.dbFieldName || name);
 			let fieldValue;
@@ -251,7 +259,7 @@ export class Maraquia {
 							if (modelListLength) {
 								if (fieldValue[0] instanceof BaseModel) {
 									for (let i = 0; i < modelListLength; i++) {
-										if (!currentlySavedModels.has(fieldValue[i])) {
+										if (!savedModels.has(fieldValue[i])) {
 											await this._save(fieldValue[i]);
 										}
 									}
@@ -264,7 +272,7 @@ export class Maraquia {
 											true
 										)
 									) {
-										(query.$set || (query.$set = {}))[
+										(query.$set || (query.$set = { __proto__: null }))[
 											fieldKeypath
 										] = fieldValue.map(model => model._id);
 									}
@@ -273,29 +281,34 @@ export class Maraquia {
 								!isNew &&
 								(model[KEY_DATA][fieldSchema.dbFieldName || name] || []).length
 							) {
-								(query.$unset || (query.$unset = {}))[fieldKeypath] = true;
+								(query.$unset || (query.$unset = { __proto__: null }))[
+									fieldKeypath
+								] = true;
 							}
 						} else if (fieldValue instanceof BaseModel) {
-							if (!currentlySavedModels.has(fieldValue)) {
+							if (!savedModels.has(fieldValue)) {
 								await this._save(fieldValue);
 							}
 
 							if (
 								fieldValue._id !== model[KEY_DATA][fieldSchema.dbFieldName || name]
 							) {
-								(query.$set || (query.$set = {}))[fieldKeypath] = fieldValue._id;
+								(query.$set || (query.$set = { __proto__: null }))[fieldKeypath] =
+									fieldValue._id;
 							}
 						}
 					} else if (Array.isArray(fieldValue)) {
 						let modelListLength = fieldValue.length;
 
 						if (modelListLength) {
-							let equal = isModelListEqual(
-								fieldValue,
-								model[KEY_DATA][fieldSchema.dbFieldName || name],
-								false
-							);
-							let q = equal && !isNew ? query : {};
+							let equal =
+								!isNew &&
+								isModelListEqual(
+									fieldValue,
+									model[KEY_DATA][fieldSchema.dbFieldName || name],
+									false
+								);
+							let q = equal ? query : ({ __proto__: null } as any);
 
 							for (let i = 0; i < modelListLength; i++) {
 								await this._save$(
@@ -307,20 +320,18 @@ export class Maraquia {
 								);
 							}
 
-							if (!equal || isNew) {
-								for (let _ in q) {
-									(query.$set || (query.$set = {}))[
-										fieldKeypath
-									] = fieldValue.map((model: BaseModel) => model.toObject());
-
-									break;
-								}
+							if (!equal && (q.$set || q.$unset)) {
+								(query.$set || (query.$set = { __proto__: null }))[
+									fieldKeypath
+								] = fieldValue.map((model: BaseModel) => model.toObject());
 							}
 						} else if (
 							!isNew &&
 							(model[KEY_DATA][fieldSchema.dbFieldName || name] || []).length
 						) {
-							(query.$unset || (query.$unset = {}))[fieldKeypath] = true;
+							(query.$unset || (query.$unset = { __proto__: null }))[
+								fieldKeypath
+							] = true;
 						}
 					} else {
 						await this._save$(
@@ -333,7 +344,7 @@ export class Maraquia {
 						);
 					}
 				} else if (!isNew && model[KEY_DATA][fieldSchema.dbFieldName || name]) {
-					(query.$unset || (query.$unset = {}))[fieldKeypath] = true;
+					(query.$unset || (query.$unset = { __proto__: null }))[fieldKeypath] = true;
 				}
 			} else {
 				fieldValue = model[name];
@@ -351,10 +362,14 @@ export class Maraquia {
 				) {
 					if (fieldValue == null || (Array.isArray(fieldValue) && !fieldValue.length)) {
 						if (!isNew) {
-							(query.$unset || (query.$unset = {}))[fieldKeypath] = true;
+							(query.$unset || (query.$unset = { __proto__: null }))[
+								fieldKeypath
+							] = true;
 						}
 					} else {
-						(query.$set || (query.$set = {}))[fieldKeypath] = fieldValue;
+						(query.$set || (query.$set = { __proto__: null }))[
+							fieldKeypath
+						] = fieldValue;
 					}
 				}
 			}

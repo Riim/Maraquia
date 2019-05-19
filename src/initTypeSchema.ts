@@ -10,9 +10,9 @@ export function initTypeSchema(type: typeof BaseModel): ISchema {
 
 	if (parentSchema) {
 		schema = type.$schema = { __proto__: parentSchema } as any;
-		schema.fields = { __proto__: schema.fields } as any;
+		schema.fields = { __proto__: schema.fields };
 	} else {
-		schema = type.$schema = { fields: {} } as any;
+		schema = type.$schema = { fields: {} };
 	}
 
 	return schema;
