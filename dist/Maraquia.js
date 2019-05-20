@@ -4,7 +4,8 @@ const BaseModel_1 = require("./BaseModel");
 const initCollection_1 = require("./initCollection");
 const initDocument_1 = require("./initDocument");
 const setKeypath_1 = require("./lib/setKeypath");
-const currentlySavedModels = new Set();
+const hasOwn = Object.prototype.hasOwnProperty;
+const savedModels = new Set();
 class Maraquia {
     constructor(db) {
         this.db = db;
@@ -102,12 +103,12 @@ class Maraquia {
             throw err;
         }
         finally {
-            currentlySavedModels.clear();
+            savedModels.clear();
         }
         return true;
     }
     async _save(model) {
-        currentlySavedModels.add(model);
+        savedModels.add(model);
         if (model.m) {
             if (model.m !== this) {
                 throw new TypeError('Cannot replace Maraquia instance on model');
@@ -120,7 +121,9 @@ class Maraquia {
         if (!model._id) {
             await initDocument_1.initDocument(this, model, schema.collectionName);
         }
-        let query = await this._save$(model, schema, model._id !== model[BaseModel_1.KEY_DATA]._id, '', {});
+        let query = await this._save$(model, schema, model._id !== model[BaseModel_1.KEY_DATA]._id, '', {
+            __proto__: null
+        });
         if (model.beforeSave) {
             let r = model.beforeSave();
             if (r instanceof Promise) {
@@ -143,6 +146,9 @@ class Maraquia {
         let fieldsSchema = typeSchema.fields;
         let values = model[BaseModel_1.KEY_VALUES];
         for (let name in fieldsSchema) {
+            if (!hasOwn.call(fieldsSchema, name)) {
+                continue;
+            }
             let fieldSchema = fieldsSchema[name];
             let fieldKeypath = (keypath ? keypath + '.' : '') + (fieldSchema.dbFieldName || name);
             let fieldValue;
@@ -164,48 +170,47 @@ class Maraquia {
                             if (modelListLength) {
                                 if (fieldValue[0] instanceof BaseModel_1.BaseModel) {
                                     for (let i = 0; i < modelListLength; i++) {
-                                        if (!currentlySavedModels.has(fieldValue[i])) {
+                                        if (!savedModels.has(fieldValue[i])) {
                                             await this._save(fieldValue[i]);
                                         }
                                     }
                                     if (isNew ||
                                         !isModelListEqual(fieldValue, model[BaseModel_1.KEY_DATA][fieldSchema.dbFieldName || name], true)) {
-                                        (query.$set || (query.$set = {}))[fieldKeypath] = fieldValue.map(model => model._id);
+                                        (query.$set || (query.$set = { __proto__: null }))[fieldKeypath] = fieldValue.map(model => model._id);
                                     }
                                 }
                             }
                             else if (!isNew &&
                                 (model[BaseModel_1.KEY_DATA][fieldSchema.dbFieldName || name] || []).length) {
-                                (query.$unset || (query.$unset = {}))[fieldKeypath] = true;
+                                (query.$unset || (query.$unset = { __proto__: null }))[fieldKeypath] = true;
                             }
                         }
                         else if (fieldValue instanceof BaseModel_1.BaseModel) {
-                            if (!currentlySavedModels.has(fieldValue)) {
+                            if (!savedModels.has(fieldValue)) {
                                 await this._save(fieldValue);
                             }
                             if (fieldValue._id !== model[BaseModel_1.KEY_DATA][fieldSchema.dbFieldName || name]) {
-                                (query.$set || (query.$set = {}))[fieldKeypath] = fieldValue._id;
+                                (query.$set || (query.$set = { __proto__: null }))[fieldKeypath] =
+                                    fieldValue._id;
                             }
                         }
                     }
                     else if (Array.isArray(fieldValue)) {
                         let modelListLength = fieldValue.length;
                         if (modelListLength) {
-                            let equal = isModelListEqual(fieldValue, model[BaseModel_1.KEY_DATA][fieldSchema.dbFieldName || name], false);
-                            let q = equal && !isNew ? query : {};
+                            let equal = !isNew &&
+                                isModelListEqual(fieldValue, model[BaseModel_1.KEY_DATA][fieldSchema.dbFieldName || name], false);
+                            let q = equal ? query : { __proto__: null };
                             for (let i = 0; i < modelListLength; i++) {
                                 await this._save$(fieldValue[i], fieldTypeSchema, isNew, fieldKeypath + '.' + i, q);
                             }
-                            if (!equal || isNew) {
-                                for (let _ in q) {
-                                    (query.$set || (query.$set = {}))[fieldKeypath] = fieldValue.map((model) => model.toObject());
-                                    break;
-                                }
+                            if (!equal && (q.$set || q.$unset)) {
+                                (query.$set || (query.$set = { __proto__: null }))[fieldKeypath] = fieldValue.map((model) => model.toObject());
                             }
                         }
                         else if (!isNew &&
                             (model[BaseModel_1.KEY_DATA][fieldSchema.dbFieldName || name] || []).length) {
-                            (query.$unset || (query.$unset = {}))[fieldKeypath] = true;
+                            (query.$unset || (query.$unset = { __proto__: null }))[fieldKeypath] = true;
                         }
                     }
                     else {
@@ -214,7 +219,7 @@ class Maraquia {
                     }
                 }
                 else if (!isNew && model[BaseModel_1.KEY_DATA][fieldSchema.dbFieldName || name]) {
-                    (query.$unset || (query.$unset = {}))[fieldKeypath] = true;
+                    (query.$unset || (query.$unset = { __proto__: null }))[fieldKeypath] = true;
                 }
             }
             else {
@@ -226,11 +231,11 @@ class Maraquia {
                             : fieldValue !== model[BaseModel_1.KEY_DATA][fieldSchema.dbFieldName || name]))) {
                     if (fieldValue == null || (Array.isArray(fieldValue) && !fieldValue.length)) {
                         if (!isNew) {
-                            (query.$unset || (query.$unset = {}))[fieldKeypath] = true;
+                            (query.$unset || (query.$unset = { __proto__: null }))[fieldKeypath] = true;
                         }
                     }
                     else {
-                        (query.$set || (query.$set = {}))[fieldKeypath] = fieldValue;
+                        (query.$set || (query.$set = { __proto__: null }))[fieldKeypath] = fieldValue;
                     }
                 }
             }

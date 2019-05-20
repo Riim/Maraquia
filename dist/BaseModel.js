@@ -4,6 +4,7 @@ const mongodb_1 = require("mongodb");
 const pluralize_1 = require("pluralize");
 const prettyFormat = require("pretty-format");
 const getDefaultInstance_1 = require("./getDefaultInstance");
+const hasOwn = Object.prototype.hasOwnProperty;
 exports.KEY_REFERENCE_FIELDS = Symbol('Maraquia/BaseModel[referenceFields]');
 exports.KEY_DB_COLLECTION_INITIALIZED = Symbol('Maraquia/BaseModel[collectionInitialized]');
 exports.KEY_DATA = Symbol('Maraquia/BaseModel[data]');
@@ -20,9 +21,11 @@ class BaseModel {
         else {
             referenceFields = this.constructor[exports.KEY_REFERENCE_FIELDS] = new Set();
             for (let name in fieldsSchema) {
-                let fieldSchema = fieldsSchema[name];
-                if (fieldSchema.type && fieldSchema.type().$schema.collectionName) {
-                    referenceFields.add(fieldSchema.dbFieldName || name);
+                if (hasOwn.call(fieldsSchema, name)) {
+                    let fieldSchema = fieldsSchema[name];
+                    if (fieldSchema.type && fieldSchema.type().$schema.collectionName) {
+                        referenceFields.add(fieldSchema.dbFieldName || name);
+                    }
                 }
             }
         }
@@ -37,6 +40,9 @@ class BaseModel {
         currentlyValueSetting = true;
         try {
             for (let name in fieldsSchema) {
+                if (!hasOwn.call(fieldsSchema, name)) {
+                    continue;
+                }
                 let fieldSchema = fieldsSchema[name];
                 let value = data && data[fieldSchema.dbFieldName || name];
                 if (fieldSchema.type) {
@@ -281,7 +287,7 @@ class BaseModel {
             obj._id = this._id || null;
         }
         for (let name in fieldsSchema) {
-            if (fields && !fields[name]) {
+            if ((fields && !fields[name]) || !hasOwn.call(fieldsSchema, name)) {
                 continue;
             }
             let value;
