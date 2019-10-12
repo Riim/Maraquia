@@ -7,7 +7,9 @@ import {
 	Model
 	} from '../src';
 
-afterEach(() => getDefaultInstance().then(m => m.db.dropDatabase()));
+afterEach(() => {
+	getDefaultInstance().then(m => m.db.dropDatabase());
+});
 
 describe('create', () => {
 	test('null по умолчанию', () => {

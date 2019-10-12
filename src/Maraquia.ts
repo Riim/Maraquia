@@ -84,7 +84,7 @@ export class Maraquia {
 
 		if (resolvedFields) {
 			for (let fieldName of resolvedFields) {
-				let fieldSchema = (type as typeof BaseModel).$schema.fields[fieldName as any];
+				let fieldSchema = type.$schema.fields[fieldName as any];
 
 				if (!fieldSchema) {
 					throw new TypeError(`Field "${fieldName}" is not declared`);
@@ -183,13 +183,13 @@ export class Maraquia {
 			model.m = this;
 		}
 
-		let schema = (model.constructor as typeof BaseModel).$schema;
+		let modelSchema = (model.constructor as typeof BaseModel).$schema;
 
 		if (!model._id) {
-			await initDocument(this, model, schema.collectionName!);
+			await initDocument(this, model, modelSchema.collectionName!);
 		}
 
-		let query = await this._save$(model, schema, model._id !== model[KEY_DATA]._id, '', {
+		let query = await this._save$(model, modelSchema, model._id !== model[KEY_DATA]._id, '', {
 			__proto__: null
 		} as any);
 
@@ -204,7 +204,7 @@ export class Maraquia {
 		// console.log('model._id:', model._id);
 		// console.log('query:', query);
 
-		await this.db.collection(schema.collectionName!).updateOne({ _id: model._id }, query);
+		await this.db.collection(modelSchema.collectionName!).updateOne({ _id: model._id }, query);
 
 		updateData(model, query);
 
@@ -221,20 +221,20 @@ export class Maraquia {
 
 	async _save$(
 		model: BaseModel,
-		typeSchema: ISchema,
+		modelSchema: ISchema,
 		isNew: boolean,
 		keypath: string,
 		query: IQuery
 	): Promise<Object> {
-		let fieldsSchema = typeSchema.fields;
+		let fieldSchemas = modelSchema.fields;
 		let values = model[KEY_VALUES];
 
-		for (let name in fieldsSchema) {
-			if (!hasOwn.call(fieldsSchema, name)) {
+		for (let name in fieldSchemas) {
+			if (!hasOwn.call(fieldSchemas, name)) {
 				continue;
 			}
 
-			let fieldSchema = fieldsSchema[name];
+			let fieldSchema = fieldSchemas[name];
 			let fieldKeypath = (keypath ? keypath + '.' : '') + (fieldSchema.dbFieldName || name);
 			let fieldValue;
 
@@ -350,7 +350,7 @@ export class Maraquia {
 				fieldValue = model[name];
 
 				if (
-					(name != '_id' || !typeSchema.collectionName) &&
+					(name != '_id' || !modelSchema.collectionName) &&
 					(isNew ||
 						(Array.isArray(fieldValue)
 							? !isModelListEqual(

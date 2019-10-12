@@ -1,12 +1,12 @@
 import { BaseModel, IIndex } from '../BaseModel';
-import { initTypeSchema } from '../initTypeSchema';
+import { initModelClassSchema } from '../initModelClassSchema';
 
 export function Model(options?: {
 	collectionName?: string | null;
 	indexes?: Array<IIndex> | null;
 }) {
-	return (type: typeof BaseModel) => {
-		let schema = initTypeSchema(type);
+	return (modelConstr: typeof BaseModel) => {
+		let schema = initModelClassSchema(modelConstr);
 
 		if (options) {
 			if (options.collectionName !== undefined) {

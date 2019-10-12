@@ -1,5 +1,5 @@
 import { BaseModel, IFieldSchema } from '../BaseModel';
-import { initTypeSchema } from '../initTypeSchema';
+import { initModelClassSchema } from '../initModelClassSchema';
 
 export function Field(type?: () => typeof BaseModel, options?: IFieldSchema): any;
 export function Field(options?: IFieldSchema): any;
@@ -19,8 +19,8 @@ export function Field(
 		type = options.type;
 	}
 
-	return (target: BaseModel, propertyName: string, propertyDesc?: PropertyDescriptor): any => {
-		let schema: IFieldSchema = (initTypeSchema(target.constructor as any).fields[
+	return (target: BaseModel, propertyName: string, _propertyDesc?: PropertyDescriptor): any => {
+		let schema: IFieldSchema = (initModelClassSchema(target.constructor as any).fields[
 			propertyName
 		] = {});
 
