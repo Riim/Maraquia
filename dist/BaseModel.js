@@ -13,16 +13,16 @@ exports.KEY_VALUE = Symbol('Maraquia/BaseModel[value]');
 let currentlyValueSetting = false;
 class BaseModel {
     constructor(data, m) {
-        let fieldsSchema = this.constructor.$schema.fields;
+        let fieldSchemas = this.constructor.$schema.fields;
         let referenceFields;
         if (this.constructor.hasOwnProperty(exports.KEY_REFERENCE_FIELDS)) {
             referenceFields = this.constructor[exports.KEY_REFERENCE_FIELDS];
         }
         else {
             referenceFields = this.constructor[exports.KEY_REFERENCE_FIELDS] = new Set();
-            for (let name in fieldsSchema) {
-                if (hasOwn.call(fieldsSchema, name)) {
-                    let fieldSchema = fieldsSchema[name];
+            for (let name in fieldSchemas) {
+                if (hasOwn.call(fieldSchemas, name)) {
+                    let fieldSchema = fieldSchemas[name];
                     if (fieldSchema.type && fieldSchema.type().$schema.collectionName) {
                         referenceFields.add(fieldSchema.dbFieldName || name);
                     }
@@ -34,16 +34,16 @@ class BaseModel {
         }
         this[exports.KEY_DATA] = data || {};
         this[exports.KEY_VALUES] = new Map();
-        if (!fieldsSchema._id) {
+        if (!fieldSchemas._id) {
             this._id = (data && data._id) || null;
         }
         currentlyValueSetting = true;
         try {
-            for (let name in fieldsSchema) {
-                if (!hasOwn.call(fieldsSchema, name)) {
+            for (let name in fieldSchemas) {
+                if (!hasOwn.call(fieldSchemas, name)) {
                     continue;
                 }
-                let fieldSchema = fieldsSchema[name];
+                let fieldSchema = fieldSchemas[name];
                 let value = data && data[fieldSchema.dbFieldName || name];
                 if (fieldSchema.type) {
                     let fieldType = fieldSchema.type();
@@ -153,8 +153,8 @@ class BaseModel {
         if (!schema.type) {
             throw new TypeError(`Field "${name}" has no type`);
         }
-        let fieldType = schema.type();
-        let collectionName = fieldType.$schema.collectionName;
+        let type = schema.type();
+        let collectionName = type.$schema.collectionName;
         if (!collectionName) {
             throw new TypeError('$schema.collectionName is required');
         }
@@ -168,11 +168,11 @@ class BaseModel {
                 .collection(collectionName)
                 .find({ _id: { $in: value } })
                 .toArray()
-                .then(data => (valuePromise[exports.KEY_VALUE] = this._validateFieldValue(name, schema, data.map(itemData => new fieldType(itemData, m)))))
+                .then(data => (valuePromise[exports.KEY_VALUE] = this._validateFieldValue(name, schema, data.map(itemData => new type(itemData, m)))))
             : m.db
                 .collection(collectionName)
                 .findOne({ _id: value })
-                .then(data => (valuePromise[exports.KEY_VALUE] = this._validateFieldValue(name, schema, new fieldType(data, m))));
+                .then(data => (valuePromise[exports.KEY_VALUE] = this._validateFieldValue(name, schema, new type(data, m))));
         valuePromise[exports.KEY_VALUE] = value;
         this[exports.KEY_VALUES].set(name, valuePromise);
         return valuePromise;
@@ -190,8 +190,8 @@ class BaseModel {
             throw new TypeError(`Field "${name}" is not declared`);
         }
         if (schema.type) {
-            let fieldType = schema.type();
-            if (fieldType.$schema.collectionName) {
+            let type = schema.type();
+            if (type.$schema.collectionName) {
                 if (value != null) {
                     let isArray = Array.isArray(value);
                     if (!isArray || value.length) {
@@ -201,8 +201,8 @@ class BaseModel {
                         else {
                             if (!((isArray ? value[0] : value) instanceof BaseModel)) {
                                 value = isArray
-                                    ? value.map((itemData) => new fieldType(itemData))
-                                    : new fieldType(value);
+                                    ? value.map((itemData) => new type(itemData))
+                                    : new type(value);
                             }
                             this._validateFieldValue(name, schema, value);
                             let valuePromise = Promise.resolve(value);
@@ -225,13 +225,13 @@ class BaseModel {
             }
             if (value != null) {
                 if (!Array.isArray(value)) {
-                    this[_key] = this._validateFieldValue(name, schema, value instanceof BaseModel ? value : new fieldType(value));
+                    this[_key] = this._validateFieldValue(name, schema, value instanceof BaseModel ? value : new type(value));
                     return this;
                 }
                 if (value.length) {
                     this[_key] = this._validateFieldValue(name, schema, value[0] instanceof BaseModel
                         ? value
-                        : value.map(itemData => new fieldType(itemData)));
+                        : value.map(itemData => new type(itemData)));
                     return this;
                 }
             }
@@ -281,17 +281,17 @@ class BaseModel {
     }
     toObject(fields) {
         let schema = this.constructor.$schema;
-        let fieldsSchema = schema.fields;
+        let fieldSchemas = schema.fields;
         let obj = {};
-        if (!fieldsSchema._id && schema.collectionName && (!fields || fields._id)) {
+        if (!fieldSchemas._id && schema.collectionName && (!fields || fields._id)) {
             obj._id = this._id || null;
         }
-        for (let name in fieldsSchema) {
-            if ((fields && !fields[name]) || !hasOwn.call(fieldsSchema, name)) {
+        for (let name in fieldSchemas) {
+            if ((fields && !fields[name]) || !hasOwn.call(fieldSchemas, name)) {
                 continue;
             }
             let value;
-            if (fieldsSchema[name].type && fieldsSchema[name].type().$schema.collectionName) {
+            if (fieldSchemas[name].type && fieldSchemas[name].type().$schema.collectionName) {
                 value = this[exports.KEY_VALUES].get(name);
                 if (value instanceof Promise) {
                     value = value[exports.KEY_VALUE];

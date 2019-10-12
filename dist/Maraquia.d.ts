@@ -22,6 +22,6 @@ export declare class Maraquia {
     aggregate<T extends BaseModel>(type: typeof BaseModel, pipeline?: Array<Object>, options?: CollectionAggregationOptions): Promise<Array<T>>;
     save(model: BaseModel): Promise<boolean>;
     _save(model: BaseModel): Promise<boolean>;
-    _save$(model: BaseModel, typeSchema: ISchema, isNew: boolean, keypath: string, query: IQuery): Promise<Object>;
+    _save$(model: BaseModel, modelSchema: ISchema, isNew: boolean, keypath: string, query: IQuery): Promise<Object>;
     remove(model: BaseModel): Promise<boolean>;
 }

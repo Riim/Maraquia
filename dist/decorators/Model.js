@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const initTypeSchema_1 = require("../initTypeSchema");
+const initModelClassSchema_1 = require("../initModelClassSchema");
 function Model(options) {
-    return (type) => {
-        let schema = initTypeSchema_1.initTypeSchema(type);
+    return (modelConstr) => {
+        let schema = initModelClassSchema_1.initModelClassSchema(modelConstr);
         if (options) {
             if (options.collectionName !== undefined) {
                 schema.collectionName = options.collectionName;

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const initTypeSchema_1 = require("../initTypeSchema");
+const initModelClassSchema_1 = require("../initModelClassSchema");
 function Field(typeOrOptions, options) {
     let type;
     if (typeof typeOrOptions == 'object') {
@@ -12,8 +12,8 @@ function Field(typeOrOptions, options) {
     if (!type && options && options.type) {
         type = options.type;
     }
-    return (target, propertyName, propertyDesc) => {
-        let schema = (initTypeSchema_1.initTypeSchema(target.constructor).fields[propertyName] = {});
+    return (target, propertyName, _propertyDesc) => {
+        let schema = (initModelClassSchema_1.initModelClassSchema(target.constructor).fields[propertyName] = {});
         if (options && options.dbFieldName) {
             schema.dbFieldName = options.dbFieldName;
         }
