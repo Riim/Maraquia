@@ -13,7 +13,7 @@ export interface IFieldSchema {
 	validate?:
 		| ((value: any) => Error | string | boolean | undefined)
 		| {
-				validate: (value: any) => { error: any };
+				validate: (value: any, options: any) => { error: any };
 		  };
 }
 
@@ -409,7 +409,7 @@ export class BaseModel {
 			let result =
 				typeof fieldSchema.validate == 'function'
 					? fieldSchema.validate(value)
-					: fieldSchema.validate.validate(value);
+					: fieldSchema.validate.validate(value, { convert: false });
 
 			if (result === false) {
 				throw new TypeError(
