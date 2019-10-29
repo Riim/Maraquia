@@ -253,7 +253,7 @@ class BaseModel {
             // joi возвращает { validate: () => { error: ValidationError | null } }
             let result = typeof fieldSchema.validate == 'function'
                 ? fieldSchema.validate(value)
-                : fieldSchema.validate.validate(value);
+                : fieldSchema.validate.validate(value, { convert: false });
             if (result === false) {
                 throw new TypeError(`Not valid value "${prettyFormat(value)}" for field "${fieldName}"`);
             }
@@ -279,7 +279,7 @@ class BaseModel {
             this.constructor._m ||
             (await getDefaultInstance_1.getDefaultInstance())).remove(this);
     }
-    toObject(fields) {
+    toData(fields, methodName = 'toData') {
         let schema = this.constructor.$schema;
         let fieldSchemas = schema.fields;
         let obj = {};
@@ -301,14 +301,45 @@ class BaseModel {
                 value = this[name];
             }
             if (value instanceof BaseModel) {
-                obj[name] = value.toObject(fields && typeof fields[name] == 'object' ? fields[name] : undefined);
+                switch (value[methodName].length) {
+                    case 0: {
+                        obj[name] = value[methodName]();
+                        break;
+                    }
+                    case 1: {
+                        obj[name] = value[methodName](fields && typeof fields[name] == 'object'
+                            ? fields[name]
+                            : undefined);
+                        break;
+                    }
+                    default: {
+                        obj[name] = value[methodName](fields && typeof fields[name] == 'object'
+                            ? fields[name]
+                            : undefined, methodName);
+                        break;
+                    }
+                }
             }
             else if (Array.isArray(value)) {
                 obj[name] =
                     value.length && value[0] instanceof BaseModel
-                        ? value.map((model) => model.toObject(fields && typeof fields[name] == 'object'
-                            ? fields[name]
-                            : undefined))
+                        ? value.map((model) => {
+                            switch (model[methodName].length) {
+                                case 0: {
+                                    return model[methodName]();
+                                }
+                                case 1: {
+                                    return model[methodName](fields && typeof fields[name] == 'object'
+                                        ? fields[name]
+                                        : undefined);
+                                }
+                                default: {
+                                    return model[methodName](fields && typeof fields[name] == 'object'
+                                        ? fields[name]
+                                        : undefined, methodName);
+                                }
+                            }
+                        })
                         : value;
             }
             else {
@@ -318,7 +349,7 @@ class BaseModel {
         return obj;
     }
     inspectData() {
-        return prettyFormat(this.toObject());
+        return prettyFormat(this.toData());
     }
     printData() {
         console.log(this.inspectData());

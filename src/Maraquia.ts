@@ -323,7 +323,7 @@ export class Maraquia {
 							if (!equal && (q.$set || q.$unset)) {
 								(query.$set || (query.$set = { __proto__: null }))[
 									fieldKeypath
-								] = fieldValue.map((model: BaseModel) => model.toObject());
+								] = fieldValue.map((model: BaseModel) => model.toData());
 							}
 						} else if (
 							!isNew &&

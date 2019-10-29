@@ -641,7 +641,7 @@ describe('fetch', () => {
 
 		await foundCopy.owner;
 
-		expect(foundCopy.toObject()).toMatchObject({
+		expect(foundCopy.toData()).toMatchObject({
 			_id: pet._id,
 			name: 'Tatoshka',
 			owner: {

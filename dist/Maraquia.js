@@ -205,7 +205,7 @@ class Maraquia {
                                 await this._save$(fieldValue[i], fieldTypeSchema, isNew, fieldKeypath + '.' + i, q);
                             }
                             if (!equal && (q.$set || q.$unset)) {
-                                (query.$set || (query.$set = { __proto__: null }))[fieldKeypath] = fieldValue.map((model) => model.toObject());
+                                (query.$set || (query.$set = { __proto__: null }))[fieldKeypath] = fieldValue.map((model) => model.toData());
                             }
                         }
                         else if (!isNew &&

@@ -5,7 +5,7 @@ export interface IFieldSchema {
     type?: () => typeof BaseModel;
     default?: any;
     validate?: ((value: any) => Error | string | boolean | undefined) | {
-        validate: (value: any) => {
+        validate: (value: any, options: any) => {
             error: any;
         };
     };
@@ -49,7 +49,7 @@ export declare class BaseModel {
     afterSave: (() => Promise<any> | void) | undefined;
     beforeRemove: (() => Promise<any> | void) | undefined;
     afterRemove: (() => Promise<any> | void) | undefined;
-    toObject(fields?: Record<string, any>): Object;
+    toData(fields?: Record<string, any>, methodName?: string): Object;
     inspectData(): string;
     printData(): void;
 }

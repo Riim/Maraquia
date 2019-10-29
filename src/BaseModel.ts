@@ -451,7 +451,7 @@ export class BaseModel {
 	beforeRemove: (() => Promise<any> | void) | undefined;
 	afterRemove: (() => Promise<any> | void) | undefined;
 
-	toObject(fields?: Record<string, any>): Object {
+	toData(fields?: Record<string, any>, methodName = 'toData'): Object {
 		let schema = (this.constructor as typeof BaseModel).$schema;
 		let fieldSchemas = schema.fields;
 		let obj: Record<string, any> = {};
@@ -478,19 +478,56 @@ export class BaseModel {
 			}
 
 			if (value instanceof BaseModel) {
-				obj[name] = value.toObject(
-					fields && typeof fields[name] == 'object' ? (fields[name] as any) : undefined
-				);
+				switch (value[methodName].length) {
+					case 0: {
+						obj[name] = value[methodName]();
+						break;
+					}
+					case 1: {
+						obj[name] = value[methodName](
+							fields && typeof fields[name] == 'object'
+								? (fields[name] as any)
+								: undefined
+						);
+
+						break;
+					}
+					default: {
+						obj[name] = value[methodName](
+							fields && typeof fields[name] == 'object'
+								? (fields[name] as any)
+								: undefined,
+							methodName
+						);
+
+						break;
+					}
+				}
 			} else if (Array.isArray(value)) {
 				obj[name] =
 					value.length && value[0] instanceof BaseModel
-						? value.map((model: BaseModel) =>
-								model.toObject(
-									fields && typeof fields[name] == 'object'
-										? (fields[name] as any)
-										: undefined
-								)
-						  )
+						? value.map((model: BaseModel) => {
+								switch (model[methodName].length) {
+									case 0: {
+										return model[methodName]();
+									}
+									case 1: {
+										return model[methodName](
+											fields && typeof fields[name] == 'object'
+												? (fields[name] as any)
+												: undefined
+										);
+									}
+									default: {
+										return model[methodName](
+											fields && typeof fields[name] == 'object'
+												? (fields[name] as any)
+												: undefined,
+											methodName
+										);
+									}
+								}
+						  })
 						: value;
 			} else {
 				obj[name] = value;
@@ -501,7 +538,7 @@ export class BaseModel {
 	}
 
 	inspectData(): string {
-		return prettyFormat(this.toObject());
+		return prettyFormat(this.toData());
 	}
 
 	printData() {
