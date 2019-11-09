@@ -1,6 +1,7 @@
 import {
 	CollectionAggregationOptions,
 	Db,
+	DeleteWriteOpResultObject,
 	FilterQuery,
 	ObjectId
 	} from 'mongodb';
@@ -225,7 +226,7 @@ export class Maraquia {
 		isNew: boolean,
 		keypath: string,
 		query: IQuery
-	): Promise<Object> {
+	): Promise<IQuery> {
 		let fieldSchemas = modelSchema.fields;
 		let values = model[KEY_VALUES];
 
@@ -378,7 +379,45 @@ export class Maraquia {
 		return query;
 	}
 
-	async remove(model: BaseModel): Promise<boolean> {
+	async remove<T = any>(
+		type: typeof BaseModel,
+		query: FilterQuery<T>
+	): Promise<DeleteWriteOpResultObject> {
+		let collectionName = type.$schema.collectionName;
+
+		if (!collectionName) {
+			throw new TypeError('$schema.collectionName is required');
+		}
+
+		if (!type[KEY_DB_COLLECTION_INITIALIZED]) {
+			await initCollection(type, this);
+		}
+
+		return await this.db.collection(collectionName).deleteMany(query);
+	}
+
+	async removeOne<T = any>(type: typeof BaseModel, query: FilterQuery<T>): Promise<boolean>;
+	async removeOne(model: BaseModel): Promise<boolean>;
+	async removeOne(
+		typeOrModel: typeof BaseModel | BaseModel,
+		query?: FilterQuery<BaseModel>
+	): Promise<boolean> {
+		if (typeof typeOrModel == 'function') {
+			let type = typeOrModel;
+			let collectionName = type.$schema.collectionName;
+
+			if (!collectionName) {
+				throw new TypeError('$schema.collectionName is required');
+			}
+
+			if (!type[KEY_DB_COLLECTION_INITIALIZED]) {
+				await initCollection(type, this);
+			}
+
+			return (await this.db.collection(collectionName).deleteOne(query!)).deletedCount == 1;
+		}
+
+		let model = typeOrModel;
 		let collectionName = (model.constructor as typeof BaseModel).$schema.collectionName;
 
 		if (!collectionName) {
@@ -406,8 +445,8 @@ export class Maraquia {
 		}
 
 		let result =
-			((await this.db.collection(collectionName).deleteOne({ _id: model._id })) as any)
-				.deletedCount == 1;
+			(await this.db.collection(collectionName).deleteOne({ _id: model._id })).deletedCount ==
+			1;
 
 		if (model.afterRemove) {
 			let r = model.afterRemove();

@@ -30,10 +30,12 @@ export declare class BaseModel {
     static [KEY_DB_COLLECTION_INITIALIZED]: true | undefined;
     static _m: Maraquia;
     static use(m: Maraquia): typeof BaseModel;
+    static getMaraquia(): Promise<Maraquia>;
     static exists<T = any>(query: FilterQuery<T>): Promise<boolean>;
     static find<T extends BaseModel>(query?: FilterQuery<T> | null, resolvedFields?: Array<keyof T> | null, options?: IFindOptions): Promise<Array<T>>;
     static findOne<T extends BaseModel>(query?: FilterQuery<T> | null, resolvedFields?: Array<keyof T>): Promise<T | null>;
     static aggregate<T extends BaseModel>(pipeline?: Array<Object>, options?: CollectionAggregationOptions): Promise<Array<T>>;
+    static remove<T = any>(query: FilterQuery<T>): Promise<boolean>;
     m: Maraquia;
     [KEY_DATA]: Record<string, any>;
     [KEY_VALUES]: Map<string, ObjectId | Array<ObjectId> | Promise<any> | null>;

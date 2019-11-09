@@ -129,6 +129,9 @@ class BaseModel {
         this._m = m;
         return this;
     }
+    static async getMaraquia() {
+        return this._m || (await getDefaultInstance_1.getDefaultInstance());
+    }
     static async exists(query) {
         return (this._m || (await getDefaultInstance_1.getDefaultInstance())).exists(this, query);
     }
@@ -140,6 +143,9 @@ class BaseModel {
     }
     static async aggregate(pipeline, options) {
         return (this._m || (await getDefaultInstance_1.getDefaultInstance())).aggregate(this, pipeline, options);
+    }
+    static async remove(query) {
+        return (this._m || (await getDefaultInstance_1.getDefaultInstance())).removeOne(this, query);
     }
     use(m) {
         this.m = m;
@@ -277,7 +283,7 @@ class BaseModel {
     async remove() {
         return (this.m ||
             this.constructor._m ||
-            (await getDefaultInstance_1.getDefaultInstance())).remove(this);
+            (await getDefaultInstance_1.getDefaultInstance())).removeOne(this);
     }
     toData(fields, methodName = 'toData') {
         let schema = this.constructor.$schema;

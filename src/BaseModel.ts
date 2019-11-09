@@ -49,6 +49,10 @@ export class BaseModel {
 		return this;
 	}
 
+	static async getMaraquia(): Promise<Maraquia> {
+		return this._m || (await getDefaultInstance());
+	}
+
 	static async exists<T = any>(query: FilterQuery<T>): Promise<boolean> {
 		return (this._m || (await getDefaultInstance())).exists(this, query);
 	}
@@ -78,6 +82,10 @@ export class BaseModel {
 		options?: CollectionAggregationOptions
 	): Promise<Array<T>> {
 		return (this._m || (await getDefaultInstance())).aggregate<T>(this, pipeline, options);
+	}
+
+	static async remove<T = any>(query: FilterQuery<T>): Promise<boolean> {
+		return (this._m || (await getDefaultInstance())).removeOne(this, query);
 	}
 
 	m: Maraquia;
@@ -443,7 +451,7 @@ export class BaseModel {
 			this.m ||
 			(this.constructor as typeof BaseModel)._m ||
 			(await getDefaultInstance())
-		).remove(this);
+		).removeOne(this);
 	}
 
 	beforeSave: (() => Promise<any> | void) | undefined;

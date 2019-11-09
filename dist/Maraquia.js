@@ -242,7 +242,29 @@ class Maraquia {
         }
         return query;
     }
-    async remove(model) {
+    async remove(type, query) {
+        let collectionName = type.$schema.collectionName;
+        if (!collectionName) {
+            throw new TypeError('$schema.collectionName is required');
+        }
+        if (!type[BaseModel_1.KEY_DB_COLLECTION_INITIALIZED]) {
+            await initCollection_1.initCollection(type, this);
+        }
+        return await this.db.collection(collectionName).deleteMany(query);
+    }
+    async removeOne(typeOrModel, query) {
+        if (typeof typeOrModel == 'function') {
+            let type = typeOrModel;
+            let collectionName = type.$schema.collectionName;
+            if (!collectionName) {
+                throw new TypeError('$schema.collectionName is required');
+            }
+            if (!type[BaseModel_1.KEY_DB_COLLECTION_INITIALIZED]) {
+                await initCollection_1.initCollection(type, this);
+            }
+            return (await this.db.collection(collectionName).deleteOne(query)).deletedCount == 1;
+        }
+        let model = typeOrModel;
         let collectionName = model.constructor.$schema.collectionName;
         if (!collectionName) {
             throw new TypeError('$schema.collectionName is required');
@@ -264,8 +286,8 @@ class Maraquia {
                 await r;
             }
         }
-        let result = (await this.db.collection(collectionName).deleteOne({ _id: model._id }))
-            .deletedCount == 1;
+        let result = (await this.db.collection(collectionName).deleteOne({ _id: model._id })).deletedCount ==
+            1;
         if (model.afterRemove) {
             let r = model.afterRemove();
             if (r instanceof Promise) {

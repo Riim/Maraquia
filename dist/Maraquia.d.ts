@@ -1,4 +1,4 @@
-import { CollectionAggregationOptions, Db, FilterQuery } from 'mongodb';
+import { CollectionAggregationOptions, Db, DeleteWriteOpResultObject, FilterQuery } from 'mongodb';
 import { BaseModel, ISchema } from './BaseModel';
 export interface IQuery {
     $set?: {
@@ -22,6 +22,8 @@ export declare class Maraquia {
     aggregate<T extends BaseModel>(type: typeof BaseModel, pipeline?: Array<Object>, options?: CollectionAggregationOptions): Promise<Array<T>>;
     save(model: BaseModel): Promise<boolean>;
     _save(model: BaseModel): Promise<boolean>;
-    _save$(model: BaseModel, modelSchema: ISchema, isNew: boolean, keypath: string, query: IQuery): Promise<Object>;
-    remove(model: BaseModel): Promise<boolean>;
+    _save$(model: BaseModel, modelSchema: ISchema, isNew: boolean, keypath: string, query: IQuery): Promise<IQuery>;
+    remove<T = any>(type: typeof BaseModel, query: FilterQuery<T>): Promise<DeleteWriteOpResultObject>;
+    removeOne<T = any>(type: typeof BaseModel, query: FilterQuery<T>): Promise<boolean>;
+    removeOne(model: BaseModel): Promise<boolean>;
 }
