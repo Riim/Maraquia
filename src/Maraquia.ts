@@ -184,6 +184,14 @@ export class Maraquia {
 			model.m = this;
 		}
 
+		if (model.beforeSave) {
+			let r = model.beforeSave();
+
+			if (r instanceof Promise) {
+				await r;
+			}
+		}
+
 		let modelSchema = (model.constructor as typeof BaseModel).$schema;
 
 		if (!model._id) {
@@ -193,14 +201,6 @@ export class Maraquia {
 		let query = await this._save$(model, modelSchema, model._id !== model[KEY_DATA]._id, '', {
 			__proto__: null
 		} as any);
-
-		if (model.beforeSave) {
-			let r = model.beforeSave();
-
-			if (r instanceof Promise) {
-				await r;
-			}
-		}
 
 		// console.log('model._id:', model._id);
 		// console.log('query:', query);

@@ -117,6 +117,12 @@ class Maraquia {
         else {
             model.m = this;
         }
+        if (model.beforeSave) {
+            let r = model.beforeSave();
+            if (r instanceof Promise) {
+                await r;
+            }
+        }
         let modelSchema = model.constructor.$schema;
         if (!model._id) {
             await initDocument_1.initDocument(this, model, modelSchema.collectionName);
@@ -124,12 +130,6 @@ class Maraquia {
         let query = await this._save$(model, modelSchema, model._id !== model[BaseModel_1.KEY_DATA]._id, '', {
             __proto__: null
         });
-        if (model.beforeSave) {
-            let r = model.beforeSave();
-            if (r instanceof Promise) {
-                await r;
-            }
-        }
         // console.log('model._id:', model._id);
         // console.log('query:', query);
         await this.db.collection(modelSchema.collectionName).updateOne({ _id: model._id }, query);
