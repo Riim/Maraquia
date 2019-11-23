@@ -454,10 +454,10 @@ export class BaseModel {
 		).removeOne(this);
 	}
 
-	beforeSave: (() => Promise<any> | void) | undefined;
-	afterSave: (() => Promise<any> | void) | undefined;
-	beforeRemove: (() => Promise<any> | void) | undefined;
-	afterRemove: (() => Promise<any> | void) | undefined;
+	beforeSave(): Promise<any> | void {}
+	afterSave(): Promise<any> | void {}
+	beforeRemove(): Promise<any> | void {}
+	afterRemove(): Promise<any> | void {}
 
 	toData(fields?: Record<string, any>, methodName = 'toData'): Object {
 		let schema = (this.constructor as typeof BaseModel).$schema;
