@@ -73,7 +73,7 @@ class Maraquia {
             .toArray()).map(data => new type(data, this));
     }
     async findOne(type, query, resolvedFields) {
-        return (await this.find(type, query, resolvedFields, { limit: 1 }))[0];
+        return (await this.find(type, query, resolvedFields, { limit: 1 }))[0] || null;
     }
     async aggregate(type, pipeline, options) {
         let collectionName = type.$schema.collectionName;

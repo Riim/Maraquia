@@ -20,10 +20,14 @@ export async function getDefaultInstance(): Promise<Maraquia> {
 				databaseUrl: 'mongodb://localhost:27017/',
 				databaseName: 'MaraquiaTest'
 		  };
-	let db = (await MongoClient.connect(
-		config.databaseUrl + (config.databaseUrl.slice(-1) == '/' ? '' : '/') + config.databaseName,
-		{ useNewUrlParser: true }
-	)).db(config.databaseName);
+	let db = (
+		await MongoClient.connect(
+			config.databaseUrl +
+				(config.databaseUrl.slice(-1) == '/' ? '' : '/') +
+				config.databaseName,
+			{ useNewUrlParser: true }
+		)
+	).db(config.databaseName);
 
 	return (defaultInstance = new Maraquia(db));
 }

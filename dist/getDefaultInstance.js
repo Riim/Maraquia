@@ -16,7 +16,9 @@ async function getDefaultInstance() {
             databaseUrl: 'mongodb://localhost:27017/',
             databaseName: 'MaraquiaTest'
         };
-    let db = (await mongodb_1.MongoClient.connect(config.databaseUrl + (config.databaseUrl.slice(-1) == '/' ? '' : '/') + config.databaseName, { useNewUrlParser: true })).db(config.databaseName);
+    let db = (await mongodb_1.MongoClient.connect(config.databaseUrl +
+        (config.databaseUrl.slice(-1) == '/' ? '' : '/') +
+        config.databaseName, { useNewUrlParser: true })).db(config.databaseName);
     return (defaultInstance = new Maraquia_1.Maraquia(db));
 }
 exports.getDefaultInstance = getDefaultInstance;

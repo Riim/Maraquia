@@ -116,10 +116,12 @@ export class Maraquia {
 			}
 		}
 
-		return (await this.db
-			.collection(collectionName)
-			.aggregate(pipeline)
-			.toArray()).map(data => new type(data, this) as any);
+		return (
+			await this.db
+				.collection(collectionName)
+				.aggregate(pipeline)
+				.toArray()
+		).map(data => new type(data, this) as any);
 	}
 
 	async findOne<T extends BaseModel>(
@@ -127,7 +129,7 @@ export class Maraquia {
 		query?: FilterQuery<T> | null,
 		resolvedFields?: Array<keyof T>
 	): Promise<T | null> {
-		return (await this.find(type, query, resolvedFields, { limit: 1 }))[0];
+		return (await this.find(type, query, resolvedFields, { limit: 1 }))[0] || null;
 	}
 
 	async aggregate<T extends BaseModel>(
@@ -145,10 +147,12 @@ export class Maraquia {
 			await initCollection(type, this);
 		}
 
-		return (await this.db
-			.collection(collectionName)
-			.aggregate(pipeline, options)
-			.toArray()).map(data => new type(data, this) as any);
+		return (
+			await this.db
+				.collection(collectionName)
+				.aggregate(pipeline, options)
+				.toArray()
+		).map(data => new type(data, this) as any);
 	}
 
 	async save(model: BaseModel): Promise<boolean> {
