@@ -47,10 +47,10 @@ export declare class BaseModel {
     _validateFieldValue<T>(fieldName: string, fieldSchema: IFieldSchema, value: T): T;
     save(): Promise<boolean>;
     remove(): Promise<boolean>;
-    beforeSave: (() => Promise<any> | void) | undefined;
-    afterSave: (() => Promise<any> | void) | undefined;
-    beforeRemove: (() => Promise<any> | void) | undefined;
-    afterRemove: (() => Promise<any> | void) | undefined;
+    beforeSave(): Promise<any> | void;
+    afterSave(): Promise<any> | void;
+    beforeRemove(): Promise<any> | void;
+    afterRemove(): Promise<any> | void;
     toData(fields?: Record<string, any>, methodName?: string): Object;
     inspectData(): string;
     printData(): void;

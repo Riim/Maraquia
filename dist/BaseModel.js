@@ -285,6 +285,10 @@ class BaseModel {
             this.constructor._m ||
             (await getDefaultInstance_1.getDefaultInstance())).removeOne(this);
     }
+    beforeSave() { }
+    afterSave() { }
+    beforeRemove() { }
+    afterRemove() { }
     toData(fields, methodName = 'toData') {
         let schema = this.constructor.$schema;
         let fieldSchemas = schema.fields;
