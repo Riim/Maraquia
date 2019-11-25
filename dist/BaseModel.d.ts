@@ -1,5 +1,4 @@
-import { CollectionAggregationOptions, FilterQuery, ObjectId } from 'mongodb';
-import { IFindOptions, Maraquia } from './Maraquia';
+import { CollectionAggregationOptions, Db, DeleteWriteOpResultObject, FilterQuery, ObjectId } from 'mongodb';
 export interface IFieldSchema {
     dbFieldName?: string;
     type?: () => typeof BaseModel;
@@ -19,6 +18,19 @@ export interface ISchema {
     fields: Record<string, IFieldSchema>;
     indexes?: Array<IIndex> | null;
 }
+export interface IQuery {
+    $set?: {
+        [keypath: string]: any;
+    };
+    $unset?: {
+        [keypath: string]: any;
+    };
+}
+export interface IFindOptions {
+    sort?: Record<string, number>;
+    skip?: number;
+    limit?: number;
+}
 export declare const KEY_REFERENCE_FIELDS: unique symbol;
 export declare const KEY_DB_COLLECTION_INITIALIZED: unique symbol;
 export declare const KEY_DATA: unique symbol;
@@ -28,24 +40,29 @@ export declare class BaseModel {
     static $schema: ISchema;
     static [KEY_REFERENCE_FIELDS]: Set<string> | undefined;
     static [KEY_DB_COLLECTION_INITIALIZED]: true | undefined;
-    static _m: Maraquia;
-    static use(m: Maraquia): typeof BaseModel;
-    static getMaraquia(): Promise<Maraquia>;
+    static _db: Db | null;
+    static get db(): Db | null;
+    static use(db: Db): typeof BaseModel;
+    static getDatabase(): Promise<Db>;
     static exists<T = any>(query: FilterQuery<T>): Promise<boolean>;
     static find<T extends BaseModel>(query?: FilterQuery<T> | null, resolvedFields?: Array<keyof T> | null, options?: IFindOptions): Promise<Array<T>>;
-    static findOne<T extends BaseModel>(query?: FilterQuery<T> | null, resolvedFields?: Array<keyof T>): Promise<T | null>;
+    static findOne<T extends BaseModel>(query?: FilterQuery<T> | null, resolvedFields?: Array<keyof T> | null): Promise<T | null>;
     static aggregate<T extends BaseModel>(pipeline?: Array<Object>, options?: CollectionAggregationOptions): Promise<Array<T>>;
-    static remove<T = any>(query: FilterQuery<T>): Promise<boolean>;
-    m: Maraquia;
+    static remove<T = any>(query: FilterQuery<T>): Promise<DeleteWriteOpResultObject>;
+    static removeOne<T = any>(query: FilterQuery<T>): Promise<boolean>;
+    _db: Db | null;
+    get db(): Db | null;
+    use(db: Db): this;
     [KEY_DATA]: Record<string, any>;
     [KEY_VALUES]: Map<string, ObjectId | Array<ObjectId> | Promise<any> | null>;
     _id: ObjectId | null;
-    constructor(data?: Record<string, any> | null, m?: Maraquia);
-    use(m: Maraquia): this;
+    constructor(data?: Record<string, any> | null, db?: Db);
     fetchField<T = BaseModel | Array<BaseModel>>(name: keyof this): Promise<T | null>;
     setField(name: keyof this, value: any, _key?: Symbol | string): this;
     _validateFieldValue<T>(fieldName: string, fieldSchema: IFieldSchema, value: T): T;
-    save(): Promise<boolean>;
+    save(): Promise<IQuery>;
+    _save(db: Db): Promise<IQuery>;
+    _buildUpdateQuery(modelSchema: ISchema, isNew: boolean, keypath: string, query: IQuery, db: Db): Promise<IQuery>;
     remove(): Promise<boolean>;
     beforeSave(): Promise<any> | void;
     afterSave(): Promise<any> | void;

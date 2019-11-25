@@ -3,54 +3,57 @@ import { ObjectId } from 'mongodb';
 import {
 	BaseModel,
 	Field,
-	getDefaultInstance,
+	getDefaultDatabase,
 	Model
 	} from '../src';
 
 afterEach(() => {
-	getDefaultInstance().then(m => m.db.dropDatabase());
+	getDefaultDatabase().then(db => db.dropDatabase());
 });
 
 describe('create', () => {
 	test('null по умолчанию', () => {
 		@Model()
 		class User extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 		}
 
 		let user = new User();
 
-		expect(user.name).toBe(null);
+		expect(user.name).toBeNull();
 	});
 
 	test('заменяет undefined на null', () => {
 		@Model()
 		class User extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 		}
 
 		let user = new User({ name: undefined });
 
-		expect(user.name).toBe(null);
+		expect(user.name).toBeNull();
 
 		user.name = undefined as any;
 
-		expect(user.name).toBe(null);
+		expect(user.name).toBeNull();
 	});
 
 	test('заменяет пустой массив на null', () => {
 		@Model()
 		class User extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 		}
 
 		let user = new User({ name: [] });
 
-		expect(user.name).toBe(null);
+		expect(user.name).toBeNull();
 
 		user.name = [] as any;
 
-		expect(user.name).toBe(null);
+		expect(user.name).toBeNull();
 	});
 
 	test('поле идентификаторов получает значение не наследующее от BaseModel', () => {
@@ -80,32 +83,6 @@ describe('create', () => {
 		expect(group.userIds![0]).toBe(user._id);
 	});
 
-	test('поле идентификаторов не получает значение наследующее от BaseModel', () => {
-		@Model({
-			collectionName: 'User'
-		})
-		class User extends BaseModel {}
-
-		@Model({
-			collectionName: 'Group'
-		})
-		class Group extends BaseModel {
-			@Field({ dbFieldName: 'users' })
-			userIds: Array<ObjectId> | null;
-
-			@Field(() => User)
-			users: Promise<Array<User> | null>;
-		}
-
-		let user = new User();
-
-		let group = new Group({
-			users: [user]
-		});
-
-		expect(group.userIds).toBe(null);
-	});
-
 	test('поле идентификатора не получает значение наследующее от BaseModel', () => {
 		@Model({
 			collectionName: 'Account'
@@ -129,20 +106,48 @@ describe('create', () => {
 			account
 		});
 
-		expect(user.accountId).toBe(null);
+		expect(user.accountId).toBeNull();
+	});
+
+	test('поле идентификаторов не получает значение наследующее от BaseModel', () => {
+		@Model({
+			collectionName: 'User'
+		})
+		class User extends BaseModel {}
+
+		@Model({
+			collectionName: 'Group'
+		})
+		class Group extends BaseModel {
+			@Field({ dbFieldName: 'users' })
+			userIds: Array<ObjectId> | null;
+
+			@Field(() => User)
+			users: Promise<Array<User> | null>;
+		}
+
+		let user = new User();
+
+		let group = new Group({
+			users: [user]
+		});
+
+		expect(group.userIds).toBeNull();
 	});
 
 	test('создаёт встроенный документ', () => {
 		@Model()
 		class Account extends BaseModel {
-			@Field() accessLevel: number | null;
+			@Field()
+			accessLevel: number | null;
 		}
 
 		@Model({
 			collectionName: 'User'
 		})
 		class User extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 
 			@Field(() => Account)
 			account: Account;
@@ -164,14 +169,16 @@ describe('create', () => {
 			collectionName: 'Account'
 		})
 		class Account extends BaseModel {
-			@Field() accessLevel: number | null;
+			@Field()
+			accessLevel: number | null;
 		}
 
 		@Model({
 			collectionName: 'User'
 		})
 		class User extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 
 			@Field(() => Account)
 			account: Promise<Account>;
@@ -193,14 +200,16 @@ describe('create', () => {
 	test('создаёт встроенные документы', () => {
 		@Model()
 		class Pet extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 		}
 
 		@Model({
 			collectionName: 'Owner'
 		})
 		class Owner extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 
 			@Field(() => Pet)
 			pets: Array<Pet> | null;
@@ -225,14 +234,16 @@ describe('create', () => {
 			collectionName: 'Pet'
 		})
 		class Pet extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 		}
 
 		@Model({
 			collectionName: 'Owner'
 		})
 		class Owner extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 
 			@Field(() => Pet)
 			pets: Promise<Array<Pet> | null>;
@@ -259,7 +270,8 @@ describe('update', () => {
 	test('заменяет undefined на null', () => {
 		@Model()
 		class User extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 		}
 
 		let user = new User();
@@ -272,7 +284,8 @@ describe('update', () => {
 	test('заменяет пустой массив на null', () => {
 		@Model()
 		class User extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 		}
 
 		let user = new User();
@@ -289,7 +302,8 @@ describe('save', () => {
 			collectionName: 'User'
 		})
 		class User extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 		}
 
 		let user = new User({
@@ -298,22 +312,55 @@ describe('save', () => {
 
 		await user.save();
 
-		let userDoc = await user.m.db.collection('User').findOne({});
+		let userDoc = await user.db!.collection('User').findOne({});
 
 		expect(userDoc).toMatchObject({ name: 'Dmitry' });
+	});
+
+	test('defined _id', async () => {
+		@Model({
+			collectionName: 'User'
+		})
+		class User extends BaseModel {
+			@Field()
+			name: string | null;
+			@Field()
+			age: number | null;
+		}
+
+		let user = new User({
+			name: 'Dmitry',
+			age: 33
+		});
+
+		await user.save();
+
+		user = new User({
+			_id: user._id,
+			name: 'Dima'
+		});
+
+		await user.save();
+
+		user = (await User.findOne<User>({ _id: user._id }))!;
+
+		expect(user.name).toBe('Dima');
+		expect(user.age).toBe(33);
 	});
 
 	test('embedded', async () => {
 		@Model()
 		class Pet extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 		}
 
 		@Model({
 			collectionName: 'Owner'
 		})
 		class Owner extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 			@Field(() => Pet)
 			pets: Promise<Array<Pet> | null>;
 		}
@@ -329,7 +376,7 @@ describe('save', () => {
 
 		await owner.save();
 
-		let ownerDoc = await owner.m.db.collection('Owner').findOne({});
+		let ownerDoc = await owner.db!.collection('Owner').findOne({});
 
 		expect(ownerDoc).toMatchObject({
 			name: 'Dmitry',
@@ -345,7 +392,8 @@ describe('save', () => {
 			collectionName: 'User'
 		})
 		class User extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 
 			beforeSave = beforeSave;
 			afterSave = afterSave;
@@ -366,7 +414,8 @@ describe('save', () => {
 			collectionName: 'User'
 		})
 		class User extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 		}
 
 		@Model({
@@ -387,8 +436,8 @@ describe('save', () => {
 
 		await account.save();
 
-		let userDoc = await account.m.db.collection('User').findOne({});
-		let accountDoc = await account.m.db.collection('Account').findOne({});
+		let userDoc = await account.db!.collection('User').findOne({});
+		let accountDoc = await account.db!.collection('Account').findOne({});
 
 		expect(userDoc).toMatchObject({
 			_id: accountDoc.owner,
@@ -402,7 +451,8 @@ describe('save', () => {
 			collectionName: 'User'
 		})
 		class User extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 
 			@Field(() => Account)
 			account: Promise<Account | null>;
@@ -428,8 +478,8 @@ describe('save', () => {
 
 		await user.save();
 
-		let userDoc = await user.m.db.collection('User').findOne({});
-		let accountDoc = await user.m.db.collection('Account').findOne({});
+		let userDoc = await user.db!.collection('User').findOne({});
+		let accountDoc = await user.db!.collection('Account').findOne({});
 
 		expect(userDoc).toMatchObject({
 			_id: accountDoc.owner,
@@ -447,14 +497,16 @@ describe('save', () => {
 			collectionName: 'Pet'
 		})
 		class Pet extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 		}
 
 		@Model({
 			collectionName: 'Owner'
 		})
 		class Owner extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 
 			@Field(() => Pet)
 			pets: Promise<Array<Pet> | null>;
@@ -471,8 +523,8 @@ describe('save', () => {
 
 		await owner.save();
 
-		let petDoc = await owner.m.db.collection('Pet').findOne({});
-		let ownerDoc = await owner.m.db.collection('Owner').findOne({});
+		let petDoc = await owner.db!.collection('Pet').findOne({});
+		let ownerDoc = await owner.db!.collection('Owner').findOne({});
 
 		expect(petDoc).toMatchObject({
 			_id: ownerDoc.pets[0],
@@ -489,7 +541,8 @@ describe('save', () => {
 			collectionName: 'Pet'
 		})
 		class Pet extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 
 			@Field(() => Owner)
 			owner: Promise<Owner | null>;
@@ -499,7 +552,8 @@ describe('save', () => {
 			collectionName: 'Owner'
 		})
 		class Owner extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 
 			@Field(() => Pet)
 			pets: Promise<Array<Pet> | null>;
@@ -518,8 +572,8 @@ describe('save', () => {
 
 		await owner.save();
 
-		let petDoc = await owner.m.db.collection('Pet').findOne({});
-		let ownerDoc = await owner.m.db.collection('Owner').findOne({});
+		let petDoc = await owner.db!.collection('Pet').findOne({});
+		let ownerDoc = await owner.db!.collection('Owner').findOne({});
 
 		expect(petDoc).toMatchObject({
 			_id: ownerDoc.pets[0],
@@ -537,7 +591,8 @@ describe('save', () => {
 			collectionName: 'User'
 		})
 		class User extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 
 			@Field(() => Group)
 			groups: Promise<Array<Group> | null>;
@@ -547,7 +602,8 @@ describe('save', () => {
 			collectionName: 'Group'
 		})
 		class Group extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 
 			@Field(() => User)
 			users: Promise<Array<User> | null>;
@@ -574,10 +630,10 @@ describe('save', () => {
 
 		await group1.save();
 
-		let user1Doc = await group1.m.db.collection('User').findOne({ name: 'Dmitry' });
-		let user2Doc = await group1.m.db.collection('User').findOne({ name: 'Tatoshka' });
-		let group1Doc = await group1.m.db.collection('Group').findOne({ name: 'Admins' });
-		let group2Doc = await group1.m.db.collection('Group').findOne({ name: 'Moderators' });
+		let user1Doc = await group1.db!.collection('User').findOne({ name: 'Dmitry' });
+		let user2Doc = await group1.db!.collection('User').findOne({ name: 'Tatoshka' });
+		let group1Doc = await group1.db!.collection('Group').findOne({ name: 'Admins' });
+		let group2Doc = await group1.db!.collection('Group').findOne({ name: 'Moderators' });
 
 		expect(user1Doc).toMatchObject({
 			_id: group1Doc.users[0],
@@ -608,7 +664,8 @@ describe('fetch', () => {
 			collectionName: 'Pet'
 		})
 		class Pet extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 
 			@Field(() => Owner)
 			owner: Promise<Owner | null>;
@@ -618,7 +675,8 @@ describe('fetch', () => {
 			collectionName: 'Owner'
 		})
 		class Owner extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 
 			@Field(() => Pet)
 			pets: Promise<Array<Pet> | null>;
@@ -657,7 +715,8 @@ describe('fetch', () => {
 			collectionName: 'User'
 		})
 		class User extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 
 			@Field(() => Account)
 			account: Promise<Account | null>;
@@ -696,7 +755,8 @@ describe('remove', () => {
 			collectionName: 'User'
 		})
 		class User extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 		}
 
 		let user = new User({
@@ -720,7 +780,8 @@ describe('remove', () => {
 			collectionName: 'User'
 		})
 		class User extends BaseModel {
-			@Field() name: string | null;
+			@Field()
+			name: string | null;
 
 			beforeRemove = beforeRemove;
 			afterRemove = afterRemove;
@@ -761,7 +822,7 @@ describe('validation', () => {
 
 		let user = new User({
 			name: 'Dmitry',
-			age: 32
+			age: 33
 		});
 
 		expect(() => {
@@ -795,7 +856,7 @@ describe('validation', () => {
 
 		let user = new User({
 			name: 'Dmitry',
-			age: 32
+			age: 33
 		});
 
 		expect(() => {

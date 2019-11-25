@@ -1,13 +1,12 @@
 import * as fs from 'fs';
-import { MongoClient } from 'mongodb';
+import { Db, MongoClient } from 'mongodb';
 import * as path from 'path';
-import { Maraquia } from './Maraquia';
 
-let defaultInstance: Maraquia | undefined;
+let defaultDb: Db | undefined;
 
-export async function getDefaultInstance(): Promise<Maraquia> {
-	if (defaultInstance) {
-		return defaultInstance;
+export async function getDefaultDatabase(): Promise<Db> {
+	if (defaultDb) {
+		return defaultDb;
 	}
 
 	let configPath = path.join(process.cwd(), 'config/maraquia.json');
@@ -29,5 +28,5 @@ export async function getDefaultInstance(): Promise<Maraquia> {
 		)
 	).db(config.databaseName);
 
-	return (defaultInstance = new Maraquia(db));
+	return (defaultDb = db);
 }

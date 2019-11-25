@@ -1,12 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const Maraquia_1 = require("./Maraquia");
-exports.Maraquia = Maraquia_1.Maraquia;
+var getDefaultDatabase_1 = require("./getDefaultDatabase");
+exports.getDefaultDatabase = getDefaultDatabase_1.getDefaultDatabase;
 var BaseModel_1 = require("./BaseModel");
 exports.BaseModel = BaseModel_1.BaseModel;
 var Model_1 = require("./decorators/Model");
 exports.Model = Model_1.Model;
 var Field_1 = require("./decorators/Field");
 exports.Field = Field_1.Field;
-var getDefaultInstance_1 = require("./getDefaultInstance");
-exports.getDefaultInstance = getDefaultInstance_1.getDefaultInstance;

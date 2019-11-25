@@ -1,6 +1,6 @@
+import { Db } from 'mongodb';
 import { BaseModel } from './BaseModel';
-import { Maraquia } from './Maraquia';
 
-export async function initDocument(m: Maraquia, model: BaseModel, collectionName: string) {
-	model._id = (await m.db.collection(collectionName).insertOne({})).insertedId as any;
+export async function initDocument(model: BaseModel, db: Db, collectionName: string) {
+	model._id = (await db.collection(collectionName).insertOne({})).insertedId as any;
 }

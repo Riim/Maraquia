@@ -26,7 +26,7 @@ function Field(typeOrOptions, options) {
         if (options && options.validate) {
             schema.validate = options.validate;
         }
-        const KEY_VALUE = Symbol(`Maraquia/Field[value:${propertyName}]`);
+        const KEY_VALUE = Symbol('value:' + propertyName);
         return {
             configurable: true,
             enumerable: true,

@@ -1,8 +1,18 @@
-import { CollectionAggregationOptions, FilterQuery, ObjectId } from 'mongodb';
+import {
+	CollectionAggregationOptions,
+	Db,
+	DeleteWriteOpResultObject,
+	FilterQuery,
+	ObjectId
+	} from 'mongodb';
 import { isSingular } from 'pluralize';
 import * as prettyFormat from 'pretty-format';
-import { getDefaultInstance } from './getDefaultInstance';
-import { IFindOptions, Maraquia } from './Maraquia';
+import { getDefaultDatabase } from './getDefaultDatabase';
+import { initCollection } from './initCollection';
+import { initDocument } from './initDocument';
+import { isListsEqual } from './lib/isListsEqual';
+import { isModelListsEqual } from './lib/isModelListsEqual';
+import { setKeypath } from './lib/setKeypath';
 
 const hasOwn = Object.prototype.hasOwnProperty;
 
@@ -28,13 +38,27 @@ export interface ISchema {
 	indexes?: Array<IIndex> | null;
 }
 
-export const KEY_REFERENCE_FIELDS = Symbol('Maraquia/BaseModel[referenceFields]');
-export const KEY_DB_COLLECTION_INITIALIZED = Symbol('Maraquia/BaseModel[collectionInitialized]');
-export const KEY_DATA = Symbol('Maraquia/BaseModel[data]');
-export const KEY_VALUES = Symbol('Maraquia/BaseModel[values]');
-export const KEY_VALUE = Symbol('Maraquia/BaseModel[value]');
+export interface IQuery {
+	$set?: { [keypath: string]: any };
+	$unset?: { [keypath: string]: any };
+}
 
-let currentlyValueSetting = false;
+export interface IFindOptions {
+	sort?: Record<string, number>;
+	skip?: number;
+	limit?: number;
+}
+
+export const KEY_REFERENCE_FIELDS = Symbol('referenceFields');
+export const KEY_DB_COLLECTION_INITIALIZED = Symbol('collectionInitialized');
+export const KEY_DATA = Symbol('data');
+export const KEY_VALUES = Symbol('values');
+export const KEY_VALUE = Symbol('value');
+
+let currentlyFieldsInitialization = false;
+let currentlyFetchedDataApplying = false;
+
+const savedModels = new Set<BaseModel>();
 
 export class BaseModel {
 	static $schema: ISchema;
@@ -42,19 +66,35 @@ export class BaseModel {
 	static [KEY_REFERENCE_FIELDS]: Set<string> | undefined;
 	static [KEY_DB_COLLECTION_INITIALIZED]: true | undefined;
 
-	static _m: Maraquia;
+	static _db: Db | null = null;
 
-	static use(m: Maraquia): typeof BaseModel {
-		this._m = m;
+	static get db(): Db | null {
+		return this._db;
+	}
+
+	static use(db: Db): typeof BaseModel {
+		this._db = db;
 		return this;
 	}
 
-	static async getMaraquia(): Promise<Maraquia> {
-		return this._m || (await getDefaultInstance());
+	static async getDatabase(): Promise<Db> {
+		return this._db || (this._db = await getDefaultDatabase());
 	}
 
 	static async exists<T = any>(query: FilterQuery<T>): Promise<boolean> {
-		return (this._m || (await getDefaultInstance())).exists(this, query);
+		let collectionName = this.$schema.collectionName;
+
+		if (!collectionName) {
+			throw new TypeError('$schema.collectionName is required');
+		}
+
+		let db = this._db || (this._db = await getDefaultDatabase());
+
+		if (!this[KEY_DB_COLLECTION_INITIALIZED]) {
+			await initCollection(this, db);
+		}
+
+		return !!(await db.collection(collectionName).findOne(query));
 	}
 
 	static async find<T extends BaseModel>(
@@ -62,40 +102,169 @@ export class BaseModel {
 		resolvedFields?: Array<keyof T> | null,
 		options?: IFindOptions
 	): Promise<Array<T>> {
-		return (this._m || (await getDefaultInstance())).find<T>(
-			this,
-			query,
-			resolvedFields,
-			options
-		);
+		let collectionName = this.$schema.collectionName;
+
+		if (!collectionName) {
+			throw new TypeError('$schema.collectionName is required');
+		}
+
+		let db = this._db || (this._db = await getDefaultDatabase());
+
+		if (!this[KEY_DB_COLLECTION_INITIALIZED]) {
+			await initCollection(this, db);
+		}
+
+		let pipeline: Array<Object> = [];
+
+		if (query) {
+			pipeline.push({ $match: query });
+		}
+
+		if (options) {
+			if (options.sort) {
+				pipeline.push({ $sort: options.sort });
+			}
+			if (options.skip) {
+				pipeline.push({ $skip: options.skip });
+			}
+			if (options.limit) {
+				pipeline.push({ $limit: options.limit });
+			}
+		}
+
+		if (resolvedFields) {
+			for (let fieldName of resolvedFields) {
+				let fieldSchema = this.$schema.fields[fieldName as any];
+
+				if (!fieldSchema) {
+					throw new TypeError(`Field "${fieldName}" is not declared`);
+				}
+
+				let fieldType = fieldSchema.type;
+
+				if (!fieldType) {
+					throw new TypeError(`Field "${fieldName}" has not type`);
+				}
+
+				let fieldTypeCollectionName = fieldType().$schema.collectionName;
+
+				if (!fieldTypeCollectionName) {
+					throw new TypeError(
+						`$schema.collectionName of type "${fieldType().name}" is required`
+					);
+				}
+
+				pipeline.push({
+					$lookup: {
+						from: fieldTypeCollectionName,
+						localField: fieldName,
+						foreignField: '_id',
+						as: fieldName
+					}
+				});
+			}
+		}
+
+		let data = await db
+			.collection(collectionName)
+			.aggregate(pipeline)
+			.toArray();
+
+		currentlyFetchedDataApplying = true;
+		let result = data.map(data => new this(data, db) as any);
+		currentlyFetchedDataApplying = false;
+
+		return result;
 	}
 
 	static async findOne<T extends BaseModel>(
 		query?: FilterQuery<T> | null,
-		resolvedFields?: Array<keyof T>
+		resolvedFields?: Array<keyof T> | null
 	): Promise<T | null> {
-		return (this._m || (await getDefaultInstance())).findOne<T>(this, query, resolvedFields);
+		return (await this.find(query, resolvedFields, { limit: 1 }))[0] || null;
 	}
 
 	static async aggregate<T extends BaseModel>(
 		pipeline?: Array<Object>,
 		options?: CollectionAggregationOptions
 	): Promise<Array<T>> {
-		return (this._m || (await getDefaultInstance())).aggregate<T>(this, pipeline, options);
+		let collectionName = this.$schema.collectionName;
+
+		if (!collectionName) {
+			throw new TypeError('$schema.collectionName is required');
+		}
+
+		let db = this._db || (this._db = await getDefaultDatabase());
+
+		if (!this[KEY_DB_COLLECTION_INITIALIZED]) {
+			await initCollection(this, db);
+		}
+
+		let data = await db
+			.collection(collectionName)
+			.aggregate(pipeline, options)
+			.toArray();
+
+		currentlyFetchedDataApplying = true;
+		let result = data.map(data => new this(data, db) as any);
+		currentlyFetchedDataApplying = false;
+
+		return result;
 	}
 
-	static async remove<T = any>(query: FilterQuery<T>): Promise<boolean> {
-		return (this._m || (await getDefaultInstance())).removeOne(this, query);
+	static async remove<T = any>(query: FilterQuery<T>): Promise<DeleteWriteOpResultObject> {
+		let collectionName = this.$schema.collectionName;
+
+		if (!collectionName) {
+			throw new TypeError('$schema.collectionName is required');
+		}
+
+		let db = this._db || (this._db = await getDefaultDatabase());
+
+		if (!this[KEY_DB_COLLECTION_INITIALIZED]) {
+			await initCollection(this, db);
+		}
+
+		return await db.collection(collectionName).deleteMany(query);
 	}
 
-	m: Maraquia;
+	static async removeOne<T = any>(query: FilterQuery<T>): Promise<boolean> {
+		let collectionName = this.$schema.collectionName;
+
+		if (!collectionName) {
+			throw new TypeError('$schema.collectionName is required');
+		}
+
+		let db = this._db || (this._db = await getDefaultDatabase());
+
+		if (!this[KEY_DB_COLLECTION_INITIALIZED]) {
+			await initCollection(this, db);
+		}
+
+		return (await db.collection(collectionName).deleteOne(query)).deletedCount == 1;
+	}
+
+	_db: Db | null = null;
+
+	get db(): Db | null {
+		return this._db;
+	}
+
+	use(db: Db): this {
+		if (this._db) {
+			throw new TypeError('Cannot change defined database');
+		}
+
+		this._db = db;
+		return this;
+	}
 
 	[KEY_DATA]: Record<string, any>;
 	[KEY_VALUES]: Map<string, ObjectId | Array<ObjectId> | Promise<any> | null>;
 
 	_id: ObjectId | null;
 
-	constructor(data?: Record<string, any> | null, m?: Maraquia) {
+	constructor(data?: Record<string, any> | null, db?: Db) {
 		let fieldSchemas = (this.constructor as typeof BaseModel).$schema.fields;
 		let referenceFields: Set<string>;
 
@@ -117,18 +286,18 @@ export class BaseModel {
 			}
 		}
 
-		if (m) {
-			this.m = m;
+		if (db) {
+			this._db = db;
 		}
 
-		this[KEY_DATA] = data || {};
+		this[KEY_DATA] = (currentlyFetchedDataApplying && data) || {};
 		this[KEY_VALUES] = new Map();
 
 		if (!fieldSchemas._id) {
 			this._id = (data && data._id) || null;
 		}
 
-		currentlyValueSetting = true;
+		currentlyFieldsInitialization = true;
 
 		try {
 			for (let name in fieldSchemas) {
@@ -153,9 +322,9 @@ export class BaseModel {
 									if (!((isArray ? value[0] : value) instanceof BaseModel)) {
 										value = isArray
 											? value.map(
-													(itemData: any) => new fieldType(itemData, m)
+													(itemData: any) => new fieldType(itemData, db)
 											  )
-											: new fieldType(value, m);
+											: new fieldType(value, db);
 
 										if (isArray && value.length == 1 && isSingular(name)) {
 											value = value[0];
@@ -193,7 +362,7 @@ export class BaseModel {
 							this[name] = this._validateFieldValue(
 								name,
 								fieldSchema,
-								value instanceof BaseModel ? value : new fieldType(value, m)
+								value instanceof BaseModel ? value : new fieldType(value, db)
 							);
 
 							continue;
@@ -205,7 +374,7 @@ export class BaseModel {
 								fieldSchema,
 								value[0] instanceof BaseModel
 									? value.slice()
-									: value.map((itemData: any) => new fieldType(itemData, m))
+									: value.map((itemData: any) => new fieldType(itemData, db))
 							);
 
 							continue;
@@ -245,13 +414,8 @@ export class BaseModel {
 		} catch (err) {
 			throw err;
 		} finally {
-			currentlyValueSetting = false;
+			currentlyFieldsInitialization = false;
 		}
-	}
-
-	use(m: Maraquia): this {
-		this.m = m;
-		return this;
 	}
 
 	async fetchField<T = BaseModel | Array<BaseModel>>(name: keyof this): Promise<T | null> {
@@ -282,9 +446,11 @@ export class BaseModel {
 			return value;
 		}
 
-		let m = this.m || (this.constructor as typeof BaseModel)._m || (await getDefaultInstance());
+		let db =
+			this._db ||
+			(this._db = (this.constructor as typeof BaseModel)._db || (await getDefaultDatabase()));
 		let valuePromise: Promise<T | null> = Array.isArray(value)
-			? m.db
+			? db
 					.collection(collectionName!)
 					.find({ _id: { $in: value } })
 					.toArray()
@@ -293,10 +459,10 @@ export class BaseModel {
 							(valuePromise[KEY_VALUE] = this._validateFieldValue(
 								name as any,
 								schema,
-								data.map(itemData => new type(itemData, m))
+								data.map(itemData => new type(itemData, db))
 							))
 					)
-			: m.db
+			: db
 					.collection(collectionName!)
 					.findOne({ _id: value })
 					.then(
@@ -304,7 +470,7 @@ export class BaseModel {
 							(valuePromise[KEY_VALUE] = this._validateFieldValue(
 								name as any,
 								schema,
-								new type(data, m)
+								new type(data, db)
 							)) as any
 					);
 
@@ -315,7 +481,7 @@ export class BaseModel {
 	}
 
 	setField(name: keyof this, value: any, _key?: Symbol | string): this {
-		if (_key && currentlyValueSetting) {
+		if (_key && currentlyFieldsInitialization) {
 			this[_key as any] = value;
 			return this;
 		}
@@ -413,7 +579,6 @@ export class BaseModel {
 	_validateFieldValue<T>(fieldName: string, fieldSchema: IFieldSchema, value: T): T {
 		if (fieldSchema.validate) {
 			// joi возвращает { validate: () => { error: ValidationError | null } }
-
 			let result =
 				typeof fieldSchema.validate == 'function'
 					? fieldSchema.validate(value)
@@ -438,20 +603,283 @@ export class BaseModel {
 		return value;
 	}
 
-	async save(): Promise<boolean> {
-		return (
-			this.m ||
-			(this.constructor as typeof BaseModel)._m ||
-			(await getDefaultInstance())
-		).save(this);
+	async save(): Promise<IQuery> {
+		let type = this.constructor as typeof BaseModel;
+
+		if (!type.$schema.collectionName) {
+			throw new TypeError('$schema.collectionName is required');
+		}
+
+		let db =
+			this._db ||
+			(this._db = (this.constructor as typeof BaseModel)._db || (await getDefaultDatabase()));
+
+		if (!type[KEY_DB_COLLECTION_INITIALIZED]) {
+			await initCollection(type, db);
+		}
+
+		let query: IQuery;
+
+		try {
+			query = await this._save(db);
+		} catch (err) {
+			throw err;
+		} finally {
+			// https://github.com/Riim/Maraquia/pull/1#issuecomment-491389356
+			savedModels.clear();
+		}
+
+		return query;
+	}
+
+	async _save(db: Db): Promise<IQuery> {
+		savedModels.add(this);
+
+		if (this.beforeSave) {
+			let r = this.beforeSave();
+
+			if (r instanceof Promise) {
+				await r;
+			}
+		}
+
+		let modelSchema = (this.constructor as typeof BaseModel).$schema;
+
+		if (!this._id) {
+			await initDocument(this, db, modelSchema.collectionName!);
+		}
+
+		let query = await this._buildUpdateQuery(
+			modelSchema,
+			this._id !== this[KEY_DATA]._id,
+			'',
+			{ __proto__: null } as any,
+			db
+		);
+
+		// console.log('_id:', this._id);
+		// console.log('query:', query);
+
+		await db.collection(modelSchema.collectionName!).updateOne({ _id: this._id }, query);
+
+		let $set = query.$set;
+		let $unset = query.$unset;
+
+		if ($set) {
+			for (let keypath in $set) {
+				setKeypath(this, keypath, $set[keypath]);
+			}
+		}
+
+		if ($unset) {
+			for (let keypath in $unset) {
+				setKeypath(this, keypath, null);
+			}
+		}
+
+		if (this.afterSave) {
+			let r = this.afterSave();
+
+			if (r instanceof Promise) {
+				await r;
+			}
+		}
+
+		return query;
+	}
+
+	async _buildUpdateQuery(
+		modelSchema: ISchema,
+		isNew: boolean,
+		keypath: string,
+		query: IQuery,
+		db: Db
+	): Promise<IQuery> {
+		let fieldSchemas = modelSchema.fields;
+
+		for (let name in fieldSchemas) {
+			if (!hasOwn.call(fieldSchemas, name)) {
+				continue;
+			}
+
+			let fieldSchema = fieldSchemas[name];
+			let fieldKeypath = (keypath ? keypath + '.' : '') + (fieldSchema.dbFieldName || name);
+			let fieldValue;
+
+			if (fieldSchema.type) {
+				let fieldTypeSchema = fieldSchema.type().$schema;
+
+				if (fieldTypeSchema.collectionName) {
+					fieldValue = this[KEY_VALUES].get(name);
+
+					if (fieldValue instanceof Promise) {
+						fieldValue = fieldValue[KEY_VALUE];
+					}
+				} else {
+					fieldValue = this[name];
+				}
+
+				if (fieldValue) {
+					if (fieldTypeSchema.collectionName) {
+						if (Array.isArray(fieldValue)) {
+							let modelListLength = fieldValue.length;
+
+							if (modelListLength) {
+								if (fieldValue[0] instanceof BaseModel) {
+									for (let i = 0; i < modelListLength; i++) {
+										if (!savedModels.has(fieldValue[i])) {
+											await (fieldValue[i] as BaseModel)._save(db);
+										}
+									}
+
+									if (
+										isNew ||
+										!isModelListsEqual(
+											fieldValue,
+											this[KEY_DATA][fieldSchema.dbFieldName || name]
+										)
+									) {
+										(query.$set || (query.$set = { __proto__: null }))[
+											fieldKeypath
+										] = fieldValue.map(model => model._id);
+									}
+								}
+							} else if (
+								!isNew &&
+								(this[KEY_DATA][fieldSchema.dbFieldName || name] || []).length
+							) {
+								(query.$unset || (query.$unset = { __proto__: null }))[
+									fieldKeypath
+								] = true;
+							}
+						} else if (fieldValue instanceof BaseModel) {
+							if (!savedModels.has(fieldValue)) {
+								await fieldValue._save(db);
+							}
+
+							if (
+								isNew ||
+								fieldValue._id !== this[KEY_DATA][fieldSchema.dbFieldName || name]
+							) {
+								(query.$set || (query.$set = { __proto__: null }))[fieldKeypath] =
+									fieldValue._id;
+							}
+						}
+					} else if (Array.isArray(fieldValue)) {
+						let modelListLength = fieldValue.length;
+
+						if (modelListLength) {
+							let equal =
+								!isNew &&
+								isListsEqual(
+									fieldValue,
+									this[KEY_DATA][fieldSchema.dbFieldName || name]
+								);
+							let query_ = equal ? query : ({ __proto__: null } as any);
+
+							for (let i = 0; i < modelListLength; i++) {
+								await (fieldValue[i] as BaseModel)._buildUpdateQuery(
+									fieldTypeSchema,
+									isNew,
+									fieldKeypath + '.' + i,
+									query_,
+									db
+								);
+							}
+
+							if (!equal && (query_.$set || query_.$unset)) {
+								(query.$set || (query.$set = { __proto__: null }))[
+									fieldKeypath
+								] = fieldValue.map((model: BaseModel) => model.toData());
+							}
+						} else if (
+							!isNew &&
+							(this[KEY_DATA][fieldSchema.dbFieldName || name] || []).length
+						) {
+							(query.$unset || (query.$unset = { __proto__: null }))[
+								fieldKeypath
+							] = true;
+						}
+					} else {
+						await (fieldValue as BaseModel)._buildUpdateQuery(
+							fieldTypeSchema,
+							isNew /* || fieldValue !== this[KEY_DATA][fieldSchema.dbFieldName || name] */,
+							fieldKeypath,
+							query,
+							db
+						);
+					}
+				} else if (!isNew && this[KEY_DATA][fieldSchema.dbFieldName || name]) {
+					(query.$unset || (query.$unset = { __proto__: null }))[fieldKeypath] = true;
+				}
+			} else {
+				fieldValue = this[name];
+
+				if (
+					(name != '_id' || !modelSchema.collectionName) &&
+					(isNew ||
+						(Array.isArray(fieldValue)
+							? !isListsEqual(
+									fieldValue,
+									this[KEY_DATA][fieldSchema.dbFieldName || name]
+							  )
+							: fieldValue === null
+							? fieldValue != this[KEY_DATA][fieldSchema.dbFieldName || name]
+							: fieldValue !== this[KEY_DATA][fieldSchema.dbFieldName || name]))
+				) {
+					if (fieldValue == null || (Array.isArray(fieldValue) && !fieldValue.length)) {
+						if (!isNew) {
+							(query.$unset || (query.$unset = { __proto__: null }))[
+								fieldKeypath
+							] = true;
+						}
+					} else {
+						(query.$set || (query.$set = { __proto__: null }))[
+							fieldKeypath
+						] = fieldValue;
+					}
+				}
+			}
+		}
+
+		return query;
 	}
 
 	async remove(): Promise<boolean> {
-		return (
-			this.m ||
-			(this.constructor as typeof BaseModel)._m ||
-			(await getDefaultInstance())
-		).removeOne(this);
+		let collectionName = (this.constructor as typeof BaseModel).$schema.collectionName;
+
+		if (!collectionName) {
+			throw new TypeError('$schema.collectionName is required');
+		}
+
+		if (!this._id) {
+			throw new TypeError('Field "_id" is required');
+		}
+
+		if (this.beforeRemove) {
+			let r = this.beforeRemove();
+
+			if (r instanceof Promise) {
+				await r;
+			}
+		}
+
+		let db =
+			this._db ||
+			(this._db = (this.constructor as typeof BaseModel)._db || (await getDefaultDatabase()));
+
+		let result =
+			(await db!.collection(collectionName).deleteOne({ _id: this._id })).deletedCount == 1;
+
+		if (this.afterRemove) {
+			let r = this.afterRemove();
+
+			if (r instanceof Promise) {
+				await r;
+			}
+		}
+
+		return result;
 	}
 
 	beforeSave(): Promise<any> | void {}
