@@ -604,9 +604,9 @@ export class BaseModel {
 	}
 
 	async save(): Promise<IQuery> {
-		let type = this.constructor as typeof BaseModel;
+		let modelCtor = this.constructor as typeof BaseModel;
 
-		if (!type.$schema.collectionName) {
+		if (!modelCtor.$schema.collectionName) {
 			throw new TypeError('$schema.collectionName is required');
 		}
 
@@ -614,8 +614,8 @@ export class BaseModel {
 			this._db ||
 			(this._db = (this.constructor as typeof BaseModel)._db || (await getDefaultDatabase()));
 
-		if (!type[KEY_DB_COLLECTION_INITIALIZED]) {
-			await initCollection(type, db);
+		if (!modelCtor[KEY_DB_COLLECTION_INITIALIZED]) {
+			await initCollection(modelCtor, db);
 		}
 
 		let query: IQuery;

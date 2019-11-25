@@ -5,8 +5,8 @@ export function Model(options?: {
 	collectionName?: string | null;
 	indexes?: Array<IIndex> | null;
 }) {
-	return (modelConstr: typeof BaseModel) => {
-		let schema = initModelClassSchema(modelConstr);
+	return (modelCtor: typeof BaseModel) => {
+		let schema = initModelClassSchema(modelCtor);
 
 		if (options) {
 			if (options.collectionName !== undefined) {

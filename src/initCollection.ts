@@ -1,14 +1,14 @@
 import { Db } from 'mongodb';
 import { BaseModel, KEY_DB_COLLECTION_INITIALIZED } from './BaseModel';
 
-export async function initCollection(type: typeof BaseModel, db: Db) {
-	let typeSchema = type.$schema;
-	let indexes = typeSchema.indexes;
+export async function initCollection(modelCtor: typeof BaseModel, db: Db) {
+	let modelSchema = modelCtor.$schema;
+	let indexes = modelSchema.indexes;
 
 	if (indexes) {
 		for (let index of indexes) {
 			await db
-				.collection(typeSchema.collectionName!)
+				.collection(modelSchema.collectionName!)
 				.createIndex(
 					Array.isArray(index.fields)
 						? index.fields.reduce((fields, field) => ((fields[field] = 1), fields), {})
@@ -18,5 +18,5 @@ export async function initCollection(type: typeof BaseModel, db: Db) {
 		}
 	}
 
-	type[KEY_DB_COLLECTION_INITIALIZED] = true;
+	modelCtor[KEY_DB_COLLECTION_INITIALIZED] = true;
 }

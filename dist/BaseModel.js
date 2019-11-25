@@ -390,14 +390,14 @@ class BaseModel {
         return value;
     }
     async save() {
-        let type = this.constructor;
-        if (!type.$schema.collectionName) {
+        let modelCtor = this.constructor;
+        if (!modelCtor.$schema.collectionName) {
             throw new TypeError('$schema.collectionName is required');
         }
         let db = this._db ||
             (this._db = this.constructor._db || (await getDefaultDatabase_1.getDefaultDatabase()));
-        if (!type[exports.KEY_DB_COLLECTION_INITIALIZED]) {
-            await initCollection_1.initCollection(type, db);
+        if (!modelCtor[exports.KEY_DB_COLLECTION_INITIALIZED]) {
+            await initCollection_1.initCollection(modelCtor, db);
         }
         let query;
         try {

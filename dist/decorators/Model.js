@@ -2,8 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const initModelClassSchema_1 = require("../initModelClassSchema");
 function Model(options) {
-    return (modelConstr) => {
-        let schema = initModelClassSchema_1.initModelClassSchema(modelConstr);
+    return (modelCtor) => {
+        let schema = initModelClassSchema_1.initModelClassSchema(modelCtor);
         if (options) {
             if (options.collectionName !== undefined) {
                 schema.collectionName = options.collectionName;

@@ -1,20 +1,20 @@
 import { BaseModel, ISchema } from './BaseModel';
 
-export function initModelClassSchema(modelConstr: typeof BaseModel): ISchema {
-	if (modelConstr.hasOwnProperty('$schema')) {
-		return modelConstr.$schema;
+export function initModelClassSchema(modelCtor: typeof BaseModel): ISchema {
+	if (modelCtor.hasOwnProperty('$schema')) {
+		return modelCtor.$schema;
 	}
 
-	let parentSchema: ISchema | undefined = Object.getPrototypeOf(modelConstr).$schema;
+	let parentSchema: ISchema | undefined = Object.getPrototypeOf(modelCtor).$schema;
 	let schema: ISchema;
 
 	if (parentSchema) {
-		schema = modelConstr.$schema = {
+		schema = modelCtor.$schema = {
 			__proto__: parentSchema,
 			fields: { __proto__: parentSchema.fields }
 		} as any;
 	} else {
-		schema = modelConstr.$schema = { fields: {} };
+		schema = modelCtor.$schema = { fields: {} };
 	}
 
 	return schema;
