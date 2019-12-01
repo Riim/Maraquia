@@ -1,6 +1,6 @@
 {
   "name": "maraquia",
-  "version": "0.5.1",
+  "version": "0.5.4",
   "description": "",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
@@ -27,7 +27,7 @@
     "benchmark": "^2.1.4",
     "jest": "^24.9.0",
     "joi": "^14.3.1",
-    "mongoose": "5.7.12",
+    "mongoose": "5.7.13",
     "mongorito": "3.0.4",
     "ts-jest": "^24.2.0",
     "typescript": "^3.7.2"
@@ -35,7 +35,7 @@
   "dependencies": {
     "@types/mongodb": "^3.3.11",
     "debug": "^4.1.1",
-    "mongodb": "^3.3.4",
+    "mongodb": "^3.3.5",
     "pluralize": "^8.0.0",
     "pretty-format": "^24.9.0"
   },

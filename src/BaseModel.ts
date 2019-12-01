@@ -171,7 +171,7 @@ export class BaseModel {
 			.toArray();
 
 		currentlyFetchedDataApplying = true;
-		let result = data.map(data => new this(data, db) as any);
+		let result = data.map(data => new this(data, db) as T);
 		currentlyFetchedDataApplying = false;
 
 		return result;
@@ -306,7 +306,9 @@ export class BaseModel {
 				}
 
 				let fieldSchema = fieldSchemas[name];
-				let value = data && data[fieldSchema.dbFieldName || name];
+				let value =
+					data &&
+					(data[name] !== undefined ? data[name] : data[fieldSchema.dbFieldName || name]);
 
 				if (fieldSchema.type) {
 					let fieldType = fieldSchema.type();
@@ -319,17 +321,19 @@ export class BaseModel {
 								if ((isArray ? value[0] : value) instanceof ObjectId) {
 									this[KEY_VALUES].set(name, isArray ? value.slice() : value);
 								} else {
-									if (!((isArray ? value[0] : value) instanceof BaseModel)) {
-										value = isArray
-											? value.map(
-													(itemData: any) => new fieldType(itemData, db)
-											  )
-											: new fieldType(value, db);
+									if (isArray) {
+										if (!(value[0] instanceof BaseModel)) {
+											value = value.map(
+												(itemData: any) => new fieldType(itemData, db)
+											);
 
-										if (isArray && value.length == 1 && isSingular(name)) {
-											value = value[0];
-											data![fieldSchema.dbFieldName || name] = value;
+											if (value.length == 1 && isSingular(name)) {
+												value = value[0];
+												data![fieldSchema.dbFieldName || name] = value;
+											}
 										}
+									} else if (!(value instanceof BaseModel)) {
+										value = new fieldType(value, db);
 									}
 
 									this._validateFieldValue(name, fieldSchema, value);
@@ -381,19 +385,33 @@ export class BaseModel {
 						}
 					}
 				} else if (value != null) {
-					// Поле идентификатора получит значение поля с внешней моделью:
-					// `let value = data && data[fieldSchema.dbFieldName || name];`,
+					// Поле идентификатора получит значение поля с внешней моделью
 					// если не отменить это проверкой: `!(value[0] instanceof BaseModel)`.
 
 					let isArray = Array.isArray(value);
 
-					if (
-						referenceFields.has(fieldSchema.dbFieldName || name)
-							? isArray
-								? value.length && !(value[0] instanceof BaseModel)
-								: !(value instanceof BaseModel)
-							: !isArray || value.length
-					) {
+					if (!isArray || value.length) {
+						if (referenceFields.has(fieldSchema.dbFieldName || name)) {
+							if (isArray) {
+								if (!(value[0] instanceof ObjectId)) {
+									value = value.map(
+										(value: BaseModel | { _id: ObjectId }) => value._id
+									);
+
+									if (
+										value.length == 1 &&
+										!(value[0] instanceof BaseModel) &&
+										isSingular(name)
+									) {
+										value = value[0];
+										isArray = false;
+									}
+								}
+							} else if (!(value instanceof ObjectId)) {
+								value = value._id;
+							}
+						}
+
 						this[name] = this._validateFieldValue(
 							name,
 							fieldSchema,
