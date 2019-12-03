@@ -56,13 +56,14 @@ export declare class BaseModel {
     [KEY_DATA]: Record<string, any>;
     [KEY_VALUES]: Map<string, ObjectId | Array<ObjectId> | Promise<any> | null>;
     _id: ObjectId | null;
+    _isDataFetched: boolean;
     constructor(data?: Record<string, any> | null, db?: Db);
     fetchField<T = BaseModel | Array<BaseModel>>(name: keyof this): Promise<T | null>;
     setField(name: keyof this, value: any, _key?: Symbol | string): this;
     _validateFieldValue<T>(fieldName: string, fieldSchema: IFieldSchema, value: T): T;
     save(): Promise<IQuery>;
     _save(db: Db): Promise<IQuery>;
-    _buildUpdateQuery(modelSchema: ISchema, isNew: boolean, keypath: string, query: IQuery, db: Db): Promise<IQuery>;
+    _buildUpdateQuery(modelSchema: ISchema, isNew: boolean, updateData: boolean, keypath: string, query: IQuery, db: Db): Promise<IQuery>;
     remove(): Promise<boolean>;
     beforeSave(): Promise<any> | void;
     afterSave(): Promise<any> | void;

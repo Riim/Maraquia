@@ -40,11 +40,12 @@ class BaseModel {
         if (db) {
             this._db = db;
         }
-        this[exports.KEY_DATA] = (currentlyFetchedDataApplying && data) || {};
+        this[exports.KEY_DATA] = data || {};
         this[exports.KEY_VALUES] = new Map();
         if (!fieldSchemas._id) {
             this._id = (data && data._id) || null;
         }
+        this._isDataFetched = currentlyFetchedDataApplying;
         currentlyFieldsInitialization = true;
         try {
             for (let name in fieldSchemas) {
@@ -439,7 +440,7 @@ class BaseModel {
         if (!this._id) {
             await initDocument_1.initDocument(this, db, modelSchema.collectionName);
         }
-        let query = await this._buildUpdateQuery(modelSchema, this._id !== this[exports.KEY_DATA]._id, '', { __proto__: null }, db);
+        let query = await this._buildUpdateQuery(modelSchema, !this._id, !!this._id && !this._isDataFetched, '', { __proto__: null }, db);
         // console.log('_id:', this._id);
         // console.log('query:', query);
         await db.collection(modelSchema.collectionName).updateOne({ _id: this._id }, query);
@@ -463,7 +464,7 @@ class BaseModel {
         }
         return query;
     }
-    async _buildUpdateQuery(modelSchema, isNew, keypath, query, db) {
+    async _buildUpdateQuery(modelSchema, isNew, updateData, keypath, query, db) {
         let fieldSchemas = modelSchema.fields;
         for (let name in fieldSchemas) {
             if (!hasOwn.call(fieldSchemas, name)) {
@@ -495,13 +496,15 @@ class BaseModel {
                                         }
                                     }
                                     if (isNew ||
+                                        updateData ||
                                         !isModelListsEqual_1.isModelListsEqual(fieldValue, this[exports.KEY_DATA][fieldSchema.dbFieldName || name])) {
                                         (query.$set || (query.$set = { __proto__: null }))[fieldKeypath] = fieldValue.map(model => model._id);
                                     }
                                 }
                             }
                             else if (!isNew &&
-                                (this[exports.KEY_DATA][fieldSchema.dbFieldName || name] || []).length) {
+                                (updateData ||
+                                    (this[exports.KEY_DATA][fieldSchema.dbFieldName || name] || []).length)) {
                                 (query.$unset || (query.$unset = { __proto__: null }))[fieldKeypath] = true;
                             }
                         }
@@ -510,6 +513,7 @@ class BaseModel {
                                 await fieldValue._save(db);
                             }
                             if (isNew ||
+                                updateData ||
                                 fieldValue._id !== this[exports.KEY_DATA][fieldSchema.dbFieldName || name]) {
                                 (query.$set || (query.$set = { __proto__: null }))[fieldKeypath] =
                                     fieldValue._id;
@@ -519,26 +523,33 @@ class BaseModel {
                     else if (Array.isArray(fieldValue)) {
                         let modelListLength = fieldValue.length;
                         if (modelListLength) {
-                            let equal = !isNew &&
-                                isListsEqual_1.isListsEqual(fieldValue, this[exports.KEY_DATA][fieldSchema.dbFieldName || name]);
-                            let query_ = equal ? query : { __proto__: null };
-                            for (let i = 0; i < modelListLength; i++) {
-                                await fieldValue[i]._buildUpdateQuery(fieldTypeSchema, isNew, fieldKeypath + '.' + i, query_, db);
-                            }
-                            if (!equal && (query_.$set || query_.$unset)) {
+                            if (isNew ||
+                                updateData ||
+                                !isListsEqual_1.isListsEqual(fieldValue, this[exports.KEY_DATA][fieldSchema.dbFieldName || name])) {
                                 (query.$set || (query.$set = { __proto__: null }))[fieldKeypath] = fieldValue.map((model) => model.toData());
+                            }
+                            else {
+                                for (let i = 0; i < modelListLength; i++) {
+                                    await fieldValue[i]._buildUpdateQuery(fieldTypeSchema, isNew, updateData, fieldKeypath + '.' + i, query, db);
+                                }
                             }
                         }
                         else if (!isNew &&
-                            (this[exports.KEY_DATA][fieldSchema.dbFieldName || name] || []).length) {
+                            (updateData ||
+                                (this[exports.KEY_DATA][fieldSchema.dbFieldName || name] || []).length)) {
                             (query.$unset || (query.$unset = { __proto__: null }))[fieldKeypath] = true;
                         }
                     }
+                    else if (isNew ||
+                        fieldValue[exports.KEY_DATA] !== this[exports.KEY_DATA][fieldSchema.dbFieldName || name]) {
+                        (query.$set || (query.$set = { __proto__: null }))[fieldKeypath] = fieldValue.toData();
+                    }
                     else {
-                        await fieldValue._buildUpdateQuery(fieldTypeSchema, isNew /* || fieldValue !== this[KEY_DATA][fieldSchema.dbFieldName || name] */, fieldKeypath, query, db);
+                        await fieldValue._buildUpdateQuery(fieldTypeSchema, false, updateData, fieldKeypath, query, db);
                     }
                 }
-                else if (!isNew && this[exports.KEY_DATA][fieldSchema.dbFieldName || name]) {
+                else if (!isNew &&
+                    (!updateData || this[exports.KEY_DATA][fieldSchema.dbFieldName || name] !== undefined)) {
                     (query.$unset || (query.$unset = { __proto__: null }))[fieldKeypath] = true;
                 }
             }
@@ -546,13 +557,16 @@ class BaseModel {
                 fieldValue = this[name];
                 if ((name != '_id' || !modelSchema.collectionName) &&
                     (isNew ||
+                        updateData ||
                         (Array.isArray(fieldValue)
                             ? !isListsEqual_1.isListsEqual(fieldValue, this[exports.KEY_DATA][fieldSchema.dbFieldName || name])
                             : fieldValue === null
                                 ? fieldValue != this[exports.KEY_DATA][fieldSchema.dbFieldName || name]
                                 : fieldValue !== this[exports.KEY_DATA][fieldSchema.dbFieldName || name]))) {
                     if (fieldValue == null || (Array.isArray(fieldValue) && !fieldValue.length)) {
-                        if (!isNew) {
+                        if (!isNew &&
+                            (!updateData ||
+                                this[exports.KEY_DATA][fieldSchema.dbFieldName || name] !== undefined)) {
                             (query.$unset || (query.$unset = { __proto__: null }))[fieldKeypath] = true;
                         }
                     }

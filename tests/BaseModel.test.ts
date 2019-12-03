@@ -132,7 +132,7 @@ describe('create', () => {
 			users: [user]
 		});
 
-		expect(group.userIds).toBeNull();
+		expect(group.userIds).toEqual([null]);
 	});
 
 	test('создаёт встроенный документ', () => {

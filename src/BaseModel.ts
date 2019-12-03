@@ -264,6 +264,8 @@ export class BaseModel {
 
 	_id: ObjectId | null;
 
+	_isDataFetched: boolean;
+
 	constructor(data?: Record<string, any> | null, db?: Db) {
 		let fieldSchemas = (this.constructor as typeof BaseModel).$schema.fields;
 		let referenceFields: Set<string>;
@@ -290,12 +292,14 @@ export class BaseModel {
 			this._db = db;
 		}
 
-		this[KEY_DATA] = (currentlyFetchedDataApplying && data) || {};
+		this[KEY_DATA] = data || {};
 		this[KEY_VALUES] = new Map();
 
 		if (!fieldSchemas._id) {
 			this._id = (data && data._id) || null;
 		}
+
+		this._isDataFetched = currentlyFetchedDataApplying;
 
 		currentlyFieldsInitialization = true;
 
@@ -669,7 +673,8 @@ export class BaseModel {
 
 		let query = await this._buildUpdateQuery(
 			modelSchema,
-			this._id !== this[KEY_DATA]._id,
+			!this._id,
+			!!this._id && !this._isDataFetched,
 			'',
 			{ __proto__: null } as any,
 			db
@@ -709,6 +714,7 @@ export class BaseModel {
 	async _buildUpdateQuery(
 		modelSchema: ISchema,
 		isNew: boolean,
+		updateData: boolean,
 		keypath: string,
 		query: IQuery,
 		db: Db
@@ -752,6 +758,7 @@ export class BaseModel {
 
 									if (
 										isNew ||
+										updateData ||
 										!isModelListsEqual(
 											fieldValue,
 											this[KEY_DATA][fieldSchema.dbFieldName || name]
@@ -764,7 +771,8 @@ export class BaseModel {
 								}
 							} else if (
 								!isNew &&
-								(this[KEY_DATA][fieldSchema.dbFieldName || name] || []).length
+								(updateData ||
+									(this[KEY_DATA][fieldSchema.dbFieldName || name] || []).length)
 							) {
 								(query.$unset || (query.$unset = { __proto__: null }))[
 									fieldKeypath
@@ -777,6 +785,7 @@ export class BaseModel {
 
 							if (
 								isNew ||
+								updateData ||
 								fieldValue._id !== this[KEY_DATA][fieldSchema.dbFieldName || name]
 							) {
 								(query.$set || (query.$set = { __proto__: null }))[fieldKeypath] =
@@ -787,47 +796,59 @@ export class BaseModel {
 						let modelListLength = fieldValue.length;
 
 						if (modelListLength) {
-							let equal =
-								!isNew &&
-								isListsEqual(
+							if (
+								isNew ||
+								updateData ||
+								!isListsEqual(
 									fieldValue,
 									this[KEY_DATA][fieldSchema.dbFieldName || name]
-								);
-							let query_ = equal ? query : ({ __proto__: null } as any);
-
-							for (let i = 0; i < modelListLength; i++) {
-								await (fieldValue[i] as BaseModel)._buildUpdateQuery(
-									fieldTypeSchema,
-									isNew,
-									fieldKeypath + '.' + i,
-									query_,
-									db
-								);
-							}
-
-							if (!equal && (query_.$set || query_.$unset)) {
+								)
+							) {
 								(query.$set || (query.$set = { __proto__: null }))[
 									fieldKeypath
 								] = fieldValue.map((model: BaseModel) => model.toData());
+							} else {
+								for (let i = 0; i < modelListLength; i++) {
+									await (fieldValue[i] as BaseModel)._buildUpdateQuery(
+										fieldTypeSchema,
+										isNew,
+										updateData,
+										fieldKeypath + '.' + i,
+										query,
+										db
+									);
+								}
 							}
 						} else if (
 							!isNew &&
-							(this[KEY_DATA][fieldSchema.dbFieldName || name] || []).length
+							(updateData ||
+								(this[KEY_DATA][fieldSchema.dbFieldName || name] || []).length)
 						) {
 							(query.$unset || (query.$unset = { __proto__: null }))[
 								fieldKeypath
 							] = true;
 						}
+					} else if (
+						isNew ||
+						fieldValue[KEY_DATA] !== this[KEY_DATA][fieldSchema.dbFieldName || name]
+					) {
+						(query.$set || (query.$set = { __proto__: null }))[
+							fieldKeypath
+						] = (fieldValue as BaseModel).toData();
 					} else {
 						await (fieldValue as BaseModel)._buildUpdateQuery(
 							fieldTypeSchema,
-							isNew /* || fieldValue !== this[KEY_DATA][fieldSchema.dbFieldName || name] */,
+							false,
+							updateData,
 							fieldKeypath,
 							query,
 							db
 						);
 					}
-				} else if (!isNew && this[KEY_DATA][fieldSchema.dbFieldName || name]) {
+				} else if (
+					!isNew &&
+					(!updateData || this[KEY_DATA][fieldSchema.dbFieldName || name] !== undefined)
+				) {
 					(query.$unset || (query.$unset = { __proto__: null }))[fieldKeypath] = true;
 				}
 			} else {
@@ -836,6 +857,7 @@ export class BaseModel {
 				if (
 					(name != '_id' || !modelSchema.collectionName) &&
 					(isNew ||
+						updateData ||
 						(Array.isArray(fieldValue)
 							? !isListsEqual(
 									fieldValue,
@@ -846,7 +868,11 @@ export class BaseModel {
 							: fieldValue !== this[KEY_DATA][fieldSchema.dbFieldName || name]))
 				) {
 					if (fieldValue == null || (Array.isArray(fieldValue) && !fieldValue.length)) {
-						if (!isNew) {
+						if (
+							!isNew &&
+							(!updateData ||
+								this[KEY_DATA][fieldSchema.dbFieldName || name] !== undefined)
+						) {
 							(query.$unset || (query.$unset = { __proto__: null }))[
 								fieldKeypath
 							] = true;
