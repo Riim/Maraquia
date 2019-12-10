@@ -1,5 +1,5 @@
 import * as joi from 'joi';
-import { ObjectId } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 import {
 	BaseModel,
 	Field,
@@ -7,8 +7,14 @@ import {
 	Model
 	} from '../src';
 
-afterEach(() => {
-	getDefaultDatabase().then(db => db.dropDatabase());
+afterEach(async () => {
+	let db = await getDefaultDatabase();
+	await db.dropDatabase();
+});
+
+afterAll(async () => {
+	let db = await getDefaultDatabase();
+	await ((db as any).__connection as MongoClient).close();
 });
 
 describe('create', () => {
@@ -35,7 +41,7 @@ describe('create', () => {
 
 		expect(user.name).toBeNull();
 
-		user.name = undefined as any;
+		user.setField('name', undefined);
 
 		expect(user.name).toBeNull();
 	});
@@ -44,16 +50,16 @@ describe('create', () => {
 		@Model()
 		class User extends BaseModel {
 			@Field()
-			name: string | null;
+			names: Array<string> | null;
 		}
 
-		let user = new User({ name: [] });
+		let user = new User({ names: [] });
 
-		expect(user.name).toBeNull();
+		expect(user.names).toBeNull();
 
-		user.name = [] as any;
+		user.setField('names', []);
 
-		expect(user.name).toBeNull();
+		expect(user.names).toBeNull();
 	});
 
 	test('поле идентификаторов получает значение не наследующее от BaseModel', () => {
@@ -266,36 +272,6 @@ describe('create', () => {
 	});
 });
 
-describe('update', () => {
-	test('заменяет undefined на null', () => {
-		@Model()
-		class User extends BaseModel {
-			@Field()
-			name: string | null;
-		}
-
-		let user = new User();
-
-		user.setField('name', undefined);
-
-		expect(user.name).toBeNull();
-	});
-
-	test('заменяет пустой массив на null', () => {
-		@Model()
-		class User extends BaseModel {
-			@Field()
-			name: string | null;
-		}
-
-		let user = new User();
-
-		user.setField('name', []);
-
-		expect(user.name).toBeNull();
-	});
-});
-
 describe('save', () => {
 	test('simple save', async () => {
 		@Model({
@@ -310,42 +286,15 @@ describe('save', () => {
 			name: 'Dmitry'
 		});
 
-		await user.save();
+		expect(await user.save()).toMatchObject({
+			$set: {
+				name: 'Dmitry'
+			}
+		});
 
 		let userDoc = await user.db!.collection('User').findOne({});
 
 		expect(userDoc).toMatchObject({ name: 'Dmitry' });
-	});
-
-	test('defined _id', async () => {
-		@Model({
-			collectionName: 'User'
-		})
-		class User extends BaseModel {
-			@Field()
-			name: string | null;
-			@Field()
-			age: number | null;
-		}
-
-		let user = new User({
-			name: 'Dmitry',
-			age: 33
-		});
-
-		await user.save();
-
-		user = new User({
-			_id: user._id,
-			name: 'Dima'
-		});
-
-		await user.save();
-
-		user = (await User.findOne<User>({ _id: user._id }))!;
-
-		expect(user.name).toBe('Dima');
-		expect(user.age).toBe(33);
 	});
 
 	test('embedded', async () => {
@@ -374,7 +323,16 @@ describe('save', () => {
 			pets: [pet]
 		});
 
-		await owner.save();
+		expect(await owner.save()).toMatchObject({
+			$set: {
+				name: 'Dmitry',
+				pets: [
+					{
+						name: 'Tatoshka'
+					}
+				]
+			}
+		});
 
 		let ownerDoc = await owner.db!.collection('Owner').findOne({});
 
@@ -655,6 +613,48 @@ describe('save', () => {
 			name: 'Moderators',
 			users: [user1Doc._id, user2Doc._id]
 		});
+	});
+});
+
+describe('update', () => {
+	test('simple update', async () => {
+		@Model({
+			collectionName: 'User'
+		})
+		class User extends BaseModel {
+			@Field()
+			name: string | null;
+			@Field()
+			age: number | null;
+		}
+
+		let user = new User({
+			name: 'Dmitry',
+			age: 33
+		});
+
+		expect(await user.save()).toMatchObject({
+			$set: {
+				name: 'Dmitry',
+				age: 33
+			}
+		});
+
+		user = new User({
+			_id: user._id,
+			name: 'Dima'
+		});
+
+		expect(await user.save()).toMatchObject({
+			$set: {
+				name: 'Dima'
+			}
+		});
+
+		user = (await User.findOne<User>({ _id: user._id }))!;
+
+		expect(user.name).toBe('Dima');
+		expect(user.age).toBe(33);
 	});
 });
 

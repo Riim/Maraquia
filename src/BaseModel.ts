@@ -14,8 +14,6 @@ import { isListsEqual } from './lib/isListsEqual';
 import { isModelListsEqual } from './lib/isModelListsEqual';
 import { setKeypath } from './lib/setKeypath';
 
-const hasOwn = Object.prototype.hasOwnProperty;
-
 export interface IFieldSchema {
 	dbFieldName?: string;
 	type?: () => typeof BaseModel;
@@ -244,7 +242,7 @@ export class BaseModel {
 		return (await db.collection(collectionName).deleteOne(query)).deletedCount == 1;
 	}
 
-	_db: Db | null = null;
+	_db: Db | null;
 
 	get db(): Db | null {
 		return this._db;
@@ -259,14 +257,14 @@ export class BaseModel {
 		return this;
 	}
 
+	_pushData: boolean;
+
 	[KEY_DATA]: Record<string, any>;
 	[KEY_VALUES]: Map<string, ObjectId | Array<ObjectId> | Promise<any> | null>;
 
 	_id: ObjectId | null;
 
-	_isDataFetched: boolean;
-
-	constructor(data?: Record<string, any> | null, db?: Db) {
+	constructor(data: Record<string, any> = {}, db?: Db | null) {
 		let fieldSchemas = (this.constructor as typeof BaseModel).$schema.fields;
 		let referenceFields: Set<string>;
 
@@ -278,7 +276,7 @@ export class BaseModel {
 			] = new Set();
 
 			for (let name in fieldSchemas) {
-				if (hasOwn.call(fieldSchemas, name)) {
+				if (fieldSchemas[name] !== Object.prototype[name]) {
 					let fieldSchema = fieldSchemas[name];
 
 					if (fieldSchema.type && fieldSchema.type().$schema.collectionName) {
@@ -288,62 +286,70 @@ export class BaseModel {
 			}
 		}
 
-		if (db) {
-			this._db = db;
-		}
+		this._db = db || (this.constructor as typeof BaseModel)._db;
 
-		this[KEY_DATA] = data || {};
+		this._pushData = currentlyFetchedDataApplying;
+
+		this[KEY_DATA] = data;
 		this[KEY_VALUES] = new Map();
 
 		if (!fieldSchemas._id) {
-			this._id = (data && data._id) || null;
+			this._id = data._id ? new ObjectId(data._id) : null;
 		}
-
-		this._isDataFetched = currentlyFetchedDataApplying;
 
 		currentlyFieldsInitialization = true;
 
 		try {
 			for (let name in fieldSchemas) {
-				if (!hasOwn.call(fieldSchemas, name)) {
+				let fieldSchema = fieldSchemas[name];
+
+				if (fieldSchema === Object.prototype[name]) {
 					continue;
 				}
 
-				let fieldSchema = fieldSchemas[name];
-				let value =
-					data &&
-					(data[name] !== undefined ? data[name] : data[fieldSchema.dbFieldName || name]);
+				let value_ = data[name];
+
+				if (value_ === undefined && fieldSchema.dbFieldName) {
+					value_ = data[fieldSchema.dbFieldName];
+				}
+
+				let value = value_ === undefined ? null : value_;
 
 				if (fieldSchema.type) {
 					let fieldType = fieldSchema.type();
 
 					if (fieldType.$schema.collectionName) {
-						if (value != null) {
+						if (value !== null) {
 							let isArray = Array.isArray(value);
 
 							if (!isArray || value.length) {
 								if ((isArray ? value[0] : value) instanceof ObjectId) {
 									this[KEY_VALUES].set(name, isArray ? value.slice() : value);
 								} else {
-									if (isArray) {
-										if (!(value[0] instanceof BaseModel)) {
-											value = value.map(
-												(itemData: any) => new fieldType(itemData, db)
-											);
+									if (
+										isArray &&
+										value.length == 1 &&
+										!(value[0] instanceof BaseModel) &&
+										isSingular(name)
+									) {
+										value = value[0];
+										isArray = false;
+									}
 
-											if (value.length == 1 && isSingular(name)) {
-												value = value[0];
-												data![fieldSchema.dbFieldName || name] = value;
-											}
-										}
-									} else if (!(value instanceof BaseModel)) {
-										value = new fieldType(value, db);
+									if (!((isArray ? value[0] : value) instanceof BaseModel)) {
+										value = isArray
+											? value.map(
+													(itemData: Object) =>
+														new fieldType(itemData, db)
+											  )
+											: new fieldType(value, db);
+										data[name] = value;
 									}
 
 									this._validateFieldValue(name, fieldSchema, value);
 
 									let valuePromise = Promise.resolve(value);
-									valuePromise[KEY_VALUE] = value;
+									valuePromise[KEY_VALUE] = isArray ? value.slice() : value;
 									this[KEY_VALUES].set(name, valuePromise);
 								}
 
@@ -358,6 +364,15 @@ export class BaseModel {
 									: fieldSchema.default
 								: this._validateFieldValue(name, fieldSchema, null);
 
+						if (value !== null || value_ !== null) {
+							data[name] =
+								value_ === undefined
+									? undefined
+									: Array.isArray(value)
+									? value.slice()
+									: value;
+						}
+
 						let valuePromise = Promise.resolve(value);
 						valuePromise[KEY_VALUE] = value;
 						this[KEY_VALUES].set(name, valuePromise);
@@ -365,54 +380,79 @@ export class BaseModel {
 						continue;
 					}
 
-					if (value != null) {
+					if (value !== null) {
 						if (!Array.isArray(value)) {
-							this[name] = this._validateFieldValue(
+							value = this._validateFieldValue(
 								name,
 								fieldSchema,
 								value instanceof BaseModel ? value : new fieldType(value, db)
 							);
 
+							data[name] = value;
+							this[name] = value;
+
 							continue;
 						}
 
 						if (value.length) {
-							this[name] = this._validateFieldValue(
+							value = this._validateFieldValue(
 								name,
 								fieldSchema,
 								value[0] instanceof BaseModel
-									? value.slice()
+									? value
 									: value.map((itemData: any) => new fieldType(itemData, db))
 							);
+
+							data[name] = value.slice();
+							this[name] = value;
 
 							continue;
 						}
 					}
-				} else if (value != null) {
+				} else if (value !== null) {
 					// Поле идентификатора получит значение поля с внешней моделью
-					// если не отменить это проверкой: `!(value[0] instanceof BaseModel)`.
+					// если не отменять это проверкой: `!(value[0] instanceof BaseModel)`.
 
 					let isArray = Array.isArray(value);
 
 					if (!isArray || value.length) {
-						if (referenceFields.has(fieldSchema.dbFieldName || name)) {
+						if (
+							fieldSchema.dbFieldName &&
+							referenceFields.has(fieldSchema.dbFieldName)
+						) {
+							if (isArray && value.length == 1 && isSingular(name)) {
+								let value0 = value[0];
+
+								if (
+									typeof value0 !== 'string' &&
+									!(value0 instanceof ObjectId) &&
+									!(value0 instanceof BaseModel)
+								) {
+									value = value0;
+									isArray = false;
+								}
+							}
+
 							if (isArray) {
 								if (!(value[0] instanceof ObjectId)) {
 									value = value.map(
-										(value: BaseModel | { _id: ObjectId }) => value._id
+										typeof value[0] == 'string'
+											? (value: string) => new ObjectId(value)
+											: (value: BaseModel | { _id?: ObjectId }) =>
+													value._id ? new ObjectId(value._id) : null
 									);
 
-									if (
-										value.length == 1 &&
-										!(value[0] instanceof BaseModel) &&
-										isSingular(name)
-									) {
-										value = value[0];
-										isArray = false;
-									}
+									data[name] = value;
 								}
 							} else if (!(value instanceof ObjectId)) {
-								value = value._id;
+								value =
+									typeof value == 'string'
+										? new ObjectId(value)
+										: value._id
+										? new ObjectId(value._id)
+										: null;
+
+								data[name] = value;
 							}
 						}
 
@@ -426,12 +466,23 @@ export class BaseModel {
 					}
 				}
 
-				this[name] =
+				value =
 					fieldSchema.default !== undefined
 						? typeof fieldSchema.default == 'function'
 							? fieldSchema.default()
 							: fieldSchema.default
 						: this._validateFieldValue(name, fieldSchema, null);
+
+				if (value !== null || value_ !== null) {
+					data[name] =
+						value_ === undefined
+							? undefined
+							: Array.isArray(value)
+							? value.slice()
+							: value;
+				}
+
+				this[name] = value;
 			}
 		} catch (err) {
 			throw err;
@@ -518,6 +569,12 @@ export class BaseModel {
 			throw new TypeError(`Field "${name}" is not declared`);
 		}
 
+		if (value === undefined) {
+			this[KEY_DATA][name as string] = undefined;
+		} else if (this[KEY_DATA][name as string] === undefined) {
+			this[KEY_DATA][name as string] = null;
+		}
+
 		if (schema.type) {
 			let type = schema.type();
 
@@ -531,8 +588,8 @@ export class BaseModel {
 						} else {
 							if (!((isArray ? value[0] : value) instanceof BaseModel)) {
 								value = isArray
-									? value.map((itemData: any) => new type(itemData))
-									: new type(value);
+									? value.map((itemData: Object) => new type(itemData, this._db))
+									: new type(value, this._db);
 							}
 
 							this._validateFieldValue(name as any, schema, value);
@@ -565,7 +622,7 @@ export class BaseModel {
 					this[_key as any] = this._validateFieldValue(
 						name as any,
 						schema,
-						value instanceof BaseModel ? value : new type(value)
+						value instanceof BaseModel ? value : new type(value, this._db)
 					);
 
 					return this;
@@ -577,7 +634,7 @@ export class BaseModel {
 						schema,
 						value[0] instanceof BaseModel
 							? value
-							: value.map(itemData => new type(itemData))
+							: value.map(itemData => new type(itemData, this._db))
 					);
 
 					return this;
@@ -625,7 +682,7 @@ export class BaseModel {
 		return value;
 	}
 
-	async save(): Promise<IQuery> {
+	async save(_noSave?: boolean): Promise<IQuery> {
 		let modelCtor = this.constructor as typeof BaseModel;
 
 		if (!modelCtor.$schema.collectionName) {
@@ -636,14 +693,14 @@ export class BaseModel {
 			this._db ||
 			(this._db = (this.constructor as typeof BaseModel)._db || (await getDefaultDatabase()));
 
-		if (!modelCtor[KEY_DB_COLLECTION_INITIALIZED]) {
+		if (!_noSave && !modelCtor[KEY_DB_COLLECTION_INITIALIZED]) {
 			await initCollection(modelCtor, db);
 		}
 
 		let query: IQuery;
 
 		try {
-			query = await this._save(db);
+			query = await this._save(db, _noSave || false);
 		} catch (err) {
 			throw err;
 		} finally {
@@ -654,7 +711,7 @@ export class BaseModel {
 		return query;
 	}
 
-	async _save(db: Db): Promise<IQuery> {
+	async _save(db: Db, noSave: boolean): Promise<IQuery> {
 		savedModels.add(this);
 
 		if (this.beforeSave) {
@@ -667,23 +724,26 @@ export class BaseModel {
 
 		let modelSchema = (this.constructor as typeof BaseModel).$schema;
 
-		if (!this._id) {
+		if (!noSave && !this._id) {
 			await initDocument(this, db, modelSchema.collectionName!);
 		}
 
-		let query = await this._buildUpdateQuery(
+		let query = await this._save$(
 			modelSchema,
 			!this._id,
-			!!this._id && !this._isDataFetched,
+			!!this._id && !this._pushData,
 			'',
 			{ __proto__: null } as any,
-			db
+			db,
+			noSave
 		);
 
 		// console.log('_id:', this._id);
 		// console.log('query:', query);
 
-		await db.collection(modelSchema.collectionName!).updateOne({ _id: this._id }, query);
+		if (!noSave) {
+			await db.collection(modelSchema.collectionName!).updateOne({ _id: this._id }, query);
+		}
 
 		let $set = query.$set;
 		let $unset = query.$unset;
@@ -711,22 +771,24 @@ export class BaseModel {
 		return query;
 	}
 
-	async _buildUpdateQuery(
+	async _save$(
 		modelSchema: ISchema,
 		isNew: boolean,
 		updateData: boolean,
 		keypath: string,
 		query: IQuery,
-		db: Db
+		db: Db,
+		noSave: boolean
 	): Promise<IQuery> {
 		let fieldSchemas = modelSchema.fields;
 
 		for (let name in fieldSchemas) {
-			if (!hasOwn.call(fieldSchemas, name)) {
+			let fieldSchema = fieldSchemas[name];
+
+			if (fieldSchema === Object.prototype[name]) {
 				continue;
 			}
 
-			let fieldSchema = fieldSchemas[name];
 			let fieldKeypath = (keypath ? keypath + '.' : '') + (fieldSchema.dbFieldName || name);
 			let fieldValue;
 
@@ -751,18 +813,15 @@ export class BaseModel {
 							if (modelListLength) {
 								if (fieldValue[0] instanceof BaseModel) {
 									for (let i = 0; i < modelListLength; i++) {
-										if (!savedModels.has(fieldValue[i])) {
-											await (fieldValue[i] as BaseModel)._save(db);
+										if (!noSave && !savedModels.has(fieldValue[i])) {
+											await (fieldValue[i] as BaseModel)._save(db, false);
 										}
 									}
 
 									if (
 										isNew ||
 										updateData ||
-										!isModelListsEqual(
-											fieldValue,
-											this[KEY_DATA][fieldSchema.dbFieldName || name]
-										)
+										!isModelListsEqual(fieldValue, this[KEY_DATA][name])
 									) {
 										(query.$set || (query.$set = { __proto__: null }))[
 											fieldKeypath
@@ -771,23 +830,18 @@ export class BaseModel {
 								}
 							} else if (
 								!isNew &&
-								(updateData ||
-									(this[KEY_DATA][fieldSchema.dbFieldName || name] || []).length)
+								(updateData || (this[KEY_DATA][name] || []).length)
 							) {
 								(query.$unset || (query.$unset = { __proto__: null }))[
 									fieldKeypath
 								] = true;
 							}
 						} else if (fieldValue instanceof BaseModel) {
-							if (!savedModels.has(fieldValue)) {
-								await fieldValue._save(db);
+							if (!noSave && !savedModels.has(fieldValue)) {
+								await fieldValue._save(db, false);
 							}
 
-							if (
-								isNew ||
-								updateData ||
-								fieldValue._id !== this[KEY_DATA][fieldSchema.dbFieldName || name]
-							) {
+							if (isNew || updateData || fieldValue !== this[KEY_DATA][name]) {
 								(query.$set || (query.$set = { __proto__: null }))[fieldKeypath] =
 									fieldValue._id;
 							}
@@ -799,56 +853,45 @@ export class BaseModel {
 							if (
 								isNew ||
 								updateData ||
-								!isListsEqual(
-									fieldValue,
-									this[KEY_DATA][fieldSchema.dbFieldName || name]
-								)
+								!isListsEqual(fieldValue, this[KEY_DATA][name])
 							) {
 								(query.$set || (query.$set = { __proto__: null }))[
 									fieldKeypath
 								] = fieldValue.map((model: BaseModel) => model.toData());
 							} else {
 								for (let i = 0; i < modelListLength; i++) {
-									await (fieldValue[i] as BaseModel)._buildUpdateQuery(
+									await (fieldValue[i] as BaseModel)._save$(
 										fieldTypeSchema,
-										isNew,
-										updateData,
+										false,
+										false,
 										fieldKeypath + '.' + i,
 										query,
-										db
+										db,
+										noSave
 									);
 								}
 							}
-						} else if (
-							!isNew &&
-							(updateData ||
-								(this[KEY_DATA][fieldSchema.dbFieldName || name] || []).length)
-						) {
+						} else if (!isNew && (updateData || (this[KEY_DATA][name] || []).length)) {
 							(query.$unset || (query.$unset = { __proto__: null }))[
 								fieldKeypath
 							] = true;
 						}
-					} else if (
-						isNew ||
-						fieldValue[KEY_DATA] !== this[KEY_DATA][fieldSchema.dbFieldName || name]
-					) {
+					} else if (isNew || fieldValue[KEY_DATA] !== this[KEY_DATA][name]) {
 						(query.$set || (query.$set = { __proto__: null }))[
 							fieldKeypath
 						] = (fieldValue as BaseModel).toData();
 					} else {
-						await (fieldValue as BaseModel)._buildUpdateQuery(
+						await (fieldValue as BaseModel)._save$(
 							fieldTypeSchema,
 							false,
 							updateData,
 							fieldKeypath,
 							query,
-							db
+							db,
+							noSave
 						);
 					}
-				} else if (
-					!isNew &&
-					(!updateData || this[KEY_DATA][fieldSchema.dbFieldName || name] !== undefined)
-				) {
+				} else if (!isNew && !(updateData && this[KEY_DATA][name] === undefined)) {
 					(query.$unset || (query.$unset = { __proto__: null }))[fieldKeypath] = true;
 				}
 			} else {
@@ -859,20 +902,13 @@ export class BaseModel {
 					(isNew ||
 						updateData ||
 						(Array.isArray(fieldValue)
-							? !isListsEqual(
-									fieldValue,
-									this[KEY_DATA][fieldSchema.dbFieldName || name]
-							  )
+							? !isListsEqual(fieldValue, this[KEY_DATA][name])
 							: fieldValue === null
 							? fieldValue != this[KEY_DATA][fieldSchema.dbFieldName || name]
 							: fieldValue !== this[KEY_DATA][fieldSchema.dbFieldName || name]))
 				) {
-					if (fieldValue == null || (Array.isArray(fieldValue) && !fieldValue.length)) {
-						if (
-							!isNew &&
-							(!updateData ||
-								this[KEY_DATA][fieldSchema.dbFieldName || name] !== undefined)
-						) {
+					if (fieldValue === null || (Array.isArray(fieldValue) && !fieldValue.length)) {
+						if (!isNew && !(updateData && this[KEY_DATA][name] === undefined)) {
 							(query.$unset || (query.$unset = { __proto__: null }))[
 								fieldKeypath
 							] = true;
@@ -887,6 +923,10 @@ export class BaseModel {
 		}
 
 		return query;
+	}
+
+	query() {
+		return this.save(true);
 	}
 
 	async remove(): Promise<boolean> {
@@ -941,7 +981,7 @@ export class BaseModel {
 		}
 
 		for (let name in fieldSchemas) {
-			if ((fields && !fields[name]) || !hasOwn.call(fieldSchemas, name)) {
+			if (fieldSchemas[name] === Object.prototype[name] || (fields && !fields[name])) {
 				continue;
 			}
 

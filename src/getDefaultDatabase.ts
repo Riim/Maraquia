@@ -19,14 +19,13 @@ export async function getDefaultDatabase(): Promise<Db> {
 				databaseUrl: 'mongodb://localhost:27017/',
 				databaseName: 'MaraquiaTest'
 		  };
-	let db = (
-		await MongoClient.connect(
-			config.databaseUrl +
-				(config.databaseUrl.slice(-1) == '/' ? '' : '/') +
-				config.databaseName,
-			{ useNewUrlParser: true }
-		)
-	).db(config.databaseName);
+	let conn = await MongoClient.connect(
+		config.databaseUrl + (config.databaseUrl.slice(-1) == '/' ? '' : '/') + config.databaseName,
+		{ useNewUrlParser: true }
+	);
+	let db = conn.db(config.databaseName);
+
+	(db as any).__connection = conn;
 
 	return (defaultDb = db);
 }

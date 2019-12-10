@@ -9,7 +9,6 @@ const initDocument_1 = require("./initDocument");
 const isListsEqual_1 = require("./lib/isListsEqual");
 const isModelListsEqual_1 = require("./lib/isModelListsEqual");
 const setKeypath_1 = require("./lib/setKeypath");
-const hasOwn = Object.prototype.hasOwnProperty;
 exports.KEY_REFERENCE_FIELDS = Symbol('referenceFields');
 exports.KEY_DB_COLLECTION_INITIALIZED = Symbol('collectionInitialized');
 exports.KEY_DATA = Symbol('data');
@@ -19,8 +18,7 @@ let currentlyFieldsInitialization = false;
 let currentlyFetchedDataApplying = false;
 const savedModels = new Set();
 class BaseModel {
-    constructor(data, db) {
-        this._db = null;
+    constructor(data = {}, db) {
         let fieldSchemas = this.constructor.$schema.fields;
         let referenceFields;
         if (this.constructor.hasOwnProperty(exports.KEY_REFERENCE_FIELDS)) {
@@ -29,7 +27,7 @@ class BaseModel {
         else {
             referenceFields = this.constructor[exports.KEY_REFERENCE_FIELDS] = new Set();
             for (let name in fieldSchemas) {
-                if (hasOwn.call(fieldSchemas, name)) {
+                if (fieldSchemas[name] !== Object.prototype[name]) {
                     let fieldSchema = fieldSchemas[name];
                     if (fieldSchema.type && fieldSchema.type().$schema.collectionName) {
                         referenceFields.add(fieldSchema.dbFieldName || name);
@@ -37,49 +35,51 @@ class BaseModel {
                 }
             }
         }
-        if (db) {
-            this._db = db;
-        }
-        this[exports.KEY_DATA] = data || {};
+        this._db = db || this.constructor._db;
+        this._pushData = currentlyFetchedDataApplying;
+        this[exports.KEY_DATA] = data;
         this[exports.KEY_VALUES] = new Map();
         if (!fieldSchemas._id) {
-            this._id = (data && data._id) || null;
+            this._id = data._id ? new mongodb_1.ObjectId(data._id) : null;
         }
-        this._isDataFetched = currentlyFetchedDataApplying;
         currentlyFieldsInitialization = true;
         try {
             for (let name in fieldSchemas) {
-                if (!hasOwn.call(fieldSchemas, name)) {
+                let fieldSchema = fieldSchemas[name];
+                if (fieldSchema === Object.prototype[name]) {
                     continue;
                 }
-                let fieldSchema = fieldSchemas[name];
-                let value = data &&
-                    (data[name] !== undefined ? data[name] : data[fieldSchema.dbFieldName || name]);
+                let value_ = data[name];
+                if (value_ === undefined && fieldSchema.dbFieldName) {
+                    value_ = data[fieldSchema.dbFieldName];
+                }
+                let value = value_ === undefined ? null : value_;
                 if (fieldSchema.type) {
                     let fieldType = fieldSchema.type();
                     if (fieldType.$schema.collectionName) {
-                        if (value != null) {
+                        if (value !== null) {
                             let isArray = Array.isArray(value);
                             if (!isArray || value.length) {
                                 if ((isArray ? value[0] : value) instanceof mongodb_1.ObjectId) {
                                     this[exports.KEY_VALUES].set(name, isArray ? value.slice() : value);
                                 }
                                 else {
-                                    if (isArray) {
-                                        if (!(value[0] instanceof BaseModel)) {
-                                            value = value.map((itemData) => new fieldType(itemData, db));
-                                            if (value.length == 1 && pluralize_1.isSingular(name)) {
-                                                value = value[0];
-                                                data[fieldSchema.dbFieldName || name] = value;
-                                            }
-                                        }
+                                    if (isArray &&
+                                        value.length == 1 &&
+                                        !(value[0] instanceof BaseModel) &&
+                                        pluralize_1.isSingular(name)) {
+                                        value = value[0];
+                                        isArray = false;
                                     }
-                                    else if (!(value instanceof BaseModel)) {
-                                        value = new fieldType(value, db);
+                                    if (!((isArray ? value[0] : value) instanceof BaseModel)) {
+                                        value = isArray
+                                            ? value.map((itemData) => new fieldType(itemData, db))
+                                            : new fieldType(value, db);
+                                        data[name] = value;
                                     }
                                     this._validateFieldValue(name, fieldSchema, value);
                                     let valuePromise = Promise.resolve(value);
-                                    valuePromise[exports.KEY_VALUE] = value;
+                                    valuePromise[exports.KEY_VALUE] = isArray ? value.slice() : value;
                                     this[exports.KEY_VALUES].set(name, valuePromise);
                                 }
                                 continue;
@@ -91,55 +91,89 @@ class BaseModel {
                                     ? fieldSchema.default()
                                     : fieldSchema.default
                                 : this._validateFieldValue(name, fieldSchema, null);
+                        if (value !== null || value_ !== null) {
+                            data[name] =
+                                value_ === undefined
+                                    ? undefined
+                                    : Array.isArray(value)
+                                        ? value.slice()
+                                        : value;
+                        }
                         let valuePromise = Promise.resolve(value);
                         valuePromise[exports.KEY_VALUE] = value;
                         this[exports.KEY_VALUES].set(name, valuePromise);
                         continue;
                     }
-                    if (value != null) {
+                    if (value !== null) {
                         if (!Array.isArray(value)) {
-                            this[name] = this._validateFieldValue(name, fieldSchema, value instanceof BaseModel ? value : new fieldType(value, db));
+                            value = this._validateFieldValue(name, fieldSchema, value instanceof BaseModel ? value : new fieldType(value, db));
+                            data[name] = value;
+                            this[name] = value;
                             continue;
                         }
                         if (value.length) {
-                            this[name] = this._validateFieldValue(name, fieldSchema, value[0] instanceof BaseModel
-                                ? value.slice()
+                            value = this._validateFieldValue(name, fieldSchema, value[0] instanceof BaseModel
+                                ? value
                                 : value.map((itemData) => new fieldType(itemData, db)));
+                            data[name] = value.slice();
+                            this[name] = value;
                             continue;
                         }
                     }
                 }
-                else if (value != null) {
+                else if (value !== null) {
                     // Поле идентификатора получит значение поля с внешней моделью
-                    // если не отменить это проверкой: `!(value[0] instanceof BaseModel)`.
+                    // если не отменять это проверкой: `!(value[0] instanceof BaseModel)`.
                     let isArray = Array.isArray(value);
                     if (!isArray || value.length) {
-                        if (referenceFields.has(fieldSchema.dbFieldName || name)) {
+                        if (fieldSchema.dbFieldName &&
+                            referenceFields.has(fieldSchema.dbFieldName)) {
+                            if (isArray && value.length == 1 && pluralize_1.isSingular(name)) {
+                                let value0 = value[0];
+                                if (typeof value0 !== 'string' &&
+                                    !(value0 instanceof mongodb_1.ObjectId) &&
+                                    !(value0 instanceof BaseModel)) {
+                                    value = value0;
+                                    isArray = false;
+                                }
+                            }
                             if (isArray) {
                                 if (!(value[0] instanceof mongodb_1.ObjectId)) {
-                                    value = value.map((value) => value._id);
-                                    if (value.length == 1 &&
-                                        !(value[0] instanceof BaseModel) &&
-                                        pluralize_1.isSingular(name)) {
-                                        value = value[0];
-                                        isArray = false;
-                                    }
+                                    value = value.map(typeof value[0] == 'string'
+                                        ? (value) => new mongodb_1.ObjectId(value)
+                                        : (value) => value._id ? new mongodb_1.ObjectId(value._id) : null);
+                                    data[name] = value;
                                 }
                             }
                             else if (!(value instanceof mongodb_1.ObjectId)) {
-                                value = value._id;
+                                value =
+                                    typeof value == 'string'
+                                        ? new mongodb_1.ObjectId(value)
+                                        : value._id
+                                            ? new mongodb_1.ObjectId(value._id)
+                                            : null;
+                                data[name] = value;
                             }
                         }
                         this[name] = this._validateFieldValue(name, fieldSchema, isArray ? value.slice() : value);
                         continue;
                     }
                 }
-                this[name] =
+                value =
                     fieldSchema.default !== undefined
                         ? typeof fieldSchema.default == 'function'
                             ? fieldSchema.default()
                             : fieldSchema.default
                         : this._validateFieldValue(name, fieldSchema, null);
+                if (value !== null || value_ !== null) {
+                    data[name] =
+                        value_ === undefined
+                            ? undefined
+                            : Array.isArray(value)
+                                ? value.slice()
+                                : value;
+                }
+                this[name] = value;
             }
         }
         catch (err) {
@@ -325,6 +359,12 @@ class BaseModel {
         if (!schema) {
             throw new TypeError(`Field "${name}" is not declared`);
         }
+        if (value === undefined) {
+            this[exports.KEY_DATA][name] = undefined;
+        }
+        else if (this[exports.KEY_DATA][name] === undefined) {
+            this[exports.KEY_DATA][name] = null;
+        }
         if (schema.type) {
             let type = schema.type();
             if (type.$schema.collectionName) {
@@ -337,8 +377,8 @@ class BaseModel {
                         else {
                             if (!((isArray ? value[0] : value) instanceof BaseModel)) {
                                 value = isArray
-                                    ? value.map((itemData) => new type(itemData))
-                                    : new type(value);
+                                    ? value.map((itemData) => new type(itemData, this._db))
+                                    : new type(value, this._db);
                             }
                             this._validateFieldValue(name, schema, value);
                             let valuePromise = Promise.resolve(value);
@@ -361,13 +401,13 @@ class BaseModel {
             }
             if (value != null) {
                 if (!Array.isArray(value)) {
-                    this[_key] = this._validateFieldValue(name, schema, value instanceof BaseModel ? value : new type(value));
+                    this[_key] = this._validateFieldValue(name, schema, value instanceof BaseModel ? value : new type(value, this._db));
                     return this;
                 }
                 if (value.length) {
                     this[_key] = this._validateFieldValue(name, schema, value[0] instanceof BaseModel
                         ? value
-                        : value.map(itemData => new type(itemData)));
+                        : value.map(itemData => new type(itemData, this._db)));
                     return this;
                 }
             }
@@ -405,19 +445,19 @@ class BaseModel {
         }
         return value;
     }
-    async save() {
+    async save(_noSave) {
         let modelCtor = this.constructor;
         if (!modelCtor.$schema.collectionName) {
             throw new TypeError('$schema.collectionName is required');
         }
         let db = this._db ||
             (this._db = this.constructor._db || (await getDefaultDatabase_1.getDefaultDatabase()));
-        if (!modelCtor[exports.KEY_DB_COLLECTION_INITIALIZED]) {
+        if (!_noSave && !modelCtor[exports.KEY_DB_COLLECTION_INITIALIZED]) {
             await initCollection_1.initCollection(modelCtor, db);
         }
         let query;
         try {
-            query = await this._save(db);
+            query = await this._save(db, _noSave || false);
         }
         catch (err) {
             throw err;
@@ -428,7 +468,7 @@ class BaseModel {
         }
         return query;
     }
-    async _save(db) {
+    async _save(db, noSave) {
         savedModels.add(this);
         if (this.beforeSave) {
             let r = this.beforeSave();
@@ -437,13 +477,15 @@ class BaseModel {
             }
         }
         let modelSchema = this.constructor.$schema;
-        if (!this._id) {
+        if (!noSave && !this._id) {
             await initDocument_1.initDocument(this, db, modelSchema.collectionName);
         }
-        let query = await this._buildUpdateQuery(modelSchema, !this._id, !!this._id && !this._isDataFetched, '', { __proto__: null }, db);
+        let query = await this._save$(modelSchema, !this._id, !!this._id && !this._pushData, '', { __proto__: null }, db, noSave);
         // console.log('_id:', this._id);
         // console.log('query:', query);
-        await db.collection(modelSchema.collectionName).updateOne({ _id: this._id }, query);
+        if (!noSave) {
+            await db.collection(modelSchema.collectionName).updateOne({ _id: this._id }, query);
+        }
         let $set = query.$set;
         let $unset = query.$unset;
         if ($set) {
@@ -464,13 +506,13 @@ class BaseModel {
         }
         return query;
     }
-    async _buildUpdateQuery(modelSchema, isNew, updateData, keypath, query, db) {
+    async _save$(modelSchema, isNew, updateData, keypath, query, db, noSave) {
         let fieldSchemas = modelSchema.fields;
         for (let name in fieldSchemas) {
-            if (!hasOwn.call(fieldSchemas, name)) {
+            let fieldSchema = fieldSchemas[name];
+            if (fieldSchema === Object.prototype[name]) {
                 continue;
             }
-            let fieldSchema = fieldSchemas[name];
             let fieldKeypath = (keypath ? keypath + '.' : '') + (fieldSchema.dbFieldName || name);
             let fieldValue;
             if (fieldSchema.type) {
@@ -491,30 +533,27 @@ class BaseModel {
                             if (modelListLength) {
                                 if (fieldValue[0] instanceof BaseModel) {
                                     for (let i = 0; i < modelListLength; i++) {
-                                        if (!savedModels.has(fieldValue[i])) {
-                                            await fieldValue[i]._save(db);
+                                        if (!noSave && !savedModels.has(fieldValue[i])) {
+                                            await fieldValue[i]._save(db, false);
                                         }
                                     }
                                     if (isNew ||
                                         updateData ||
-                                        !isModelListsEqual_1.isModelListsEqual(fieldValue, this[exports.KEY_DATA][fieldSchema.dbFieldName || name])) {
+                                        !isModelListsEqual_1.isModelListsEqual(fieldValue, this[exports.KEY_DATA][name])) {
                                         (query.$set || (query.$set = { __proto__: null }))[fieldKeypath] = fieldValue.map(model => model._id);
                                     }
                                 }
                             }
                             else if (!isNew &&
-                                (updateData ||
-                                    (this[exports.KEY_DATA][fieldSchema.dbFieldName || name] || []).length)) {
+                                (updateData || (this[exports.KEY_DATA][name] || []).length)) {
                                 (query.$unset || (query.$unset = { __proto__: null }))[fieldKeypath] = true;
                             }
                         }
                         else if (fieldValue instanceof BaseModel) {
-                            if (!savedModels.has(fieldValue)) {
-                                await fieldValue._save(db);
+                            if (!noSave && !savedModels.has(fieldValue)) {
+                                await fieldValue._save(db, false);
                             }
-                            if (isNew ||
-                                updateData ||
-                                fieldValue._id !== this[exports.KEY_DATA][fieldSchema.dbFieldName || name]) {
+                            if (isNew || updateData || fieldValue !== this[exports.KEY_DATA][name]) {
                                 (query.$set || (query.$set = { __proto__: null }))[fieldKeypath] =
                                     fieldValue._id;
                             }
@@ -525,31 +564,27 @@ class BaseModel {
                         if (modelListLength) {
                             if (isNew ||
                                 updateData ||
-                                !isListsEqual_1.isListsEqual(fieldValue, this[exports.KEY_DATA][fieldSchema.dbFieldName || name])) {
+                                !isListsEqual_1.isListsEqual(fieldValue, this[exports.KEY_DATA][name])) {
                                 (query.$set || (query.$set = { __proto__: null }))[fieldKeypath] = fieldValue.map((model) => model.toData());
                             }
                             else {
                                 for (let i = 0; i < modelListLength; i++) {
-                                    await fieldValue[i]._buildUpdateQuery(fieldTypeSchema, isNew, updateData, fieldKeypath + '.' + i, query, db);
+                                    await fieldValue[i]._save$(fieldTypeSchema, false, false, fieldKeypath + '.' + i, query, db, noSave);
                                 }
                             }
                         }
-                        else if (!isNew &&
-                            (updateData ||
-                                (this[exports.KEY_DATA][fieldSchema.dbFieldName || name] || []).length)) {
+                        else if (!isNew && (updateData || (this[exports.KEY_DATA][name] || []).length)) {
                             (query.$unset || (query.$unset = { __proto__: null }))[fieldKeypath] = true;
                         }
                     }
-                    else if (isNew ||
-                        fieldValue[exports.KEY_DATA] !== this[exports.KEY_DATA][fieldSchema.dbFieldName || name]) {
+                    else if (isNew || fieldValue[exports.KEY_DATA] !== this[exports.KEY_DATA][name]) {
                         (query.$set || (query.$set = { __proto__: null }))[fieldKeypath] = fieldValue.toData();
                     }
                     else {
-                        await fieldValue._buildUpdateQuery(fieldTypeSchema, false, updateData, fieldKeypath, query, db);
+                        await fieldValue._save$(fieldTypeSchema, false, updateData, fieldKeypath, query, db, noSave);
                     }
                 }
-                else if (!isNew &&
-                    (!updateData || this[exports.KEY_DATA][fieldSchema.dbFieldName || name] !== undefined)) {
+                else if (!isNew && !(updateData && this[exports.KEY_DATA][name] === undefined)) {
                     (query.$unset || (query.$unset = { __proto__: null }))[fieldKeypath] = true;
                 }
             }
@@ -559,14 +594,12 @@ class BaseModel {
                     (isNew ||
                         updateData ||
                         (Array.isArray(fieldValue)
-                            ? !isListsEqual_1.isListsEqual(fieldValue, this[exports.KEY_DATA][fieldSchema.dbFieldName || name])
+                            ? !isListsEqual_1.isListsEqual(fieldValue, this[exports.KEY_DATA][name])
                             : fieldValue === null
                                 ? fieldValue != this[exports.KEY_DATA][fieldSchema.dbFieldName || name]
                                 : fieldValue !== this[exports.KEY_DATA][fieldSchema.dbFieldName || name]))) {
-                    if (fieldValue == null || (Array.isArray(fieldValue) && !fieldValue.length)) {
-                        if (!isNew &&
-                            (!updateData ||
-                                this[exports.KEY_DATA][fieldSchema.dbFieldName || name] !== undefined)) {
+                    if (fieldValue === null || (Array.isArray(fieldValue) && !fieldValue.length)) {
+                        if (!isNew && !(updateData && this[exports.KEY_DATA][name] === undefined)) {
                             (query.$unset || (query.$unset = { __proto__: null }))[fieldKeypath] = true;
                         }
                     }
@@ -577,6 +610,9 @@ class BaseModel {
             }
         }
         return query;
+    }
+    query() {
+        return this.save(true);
     }
     async remove() {
         let collectionName = this.constructor.$schema.collectionName;
@@ -615,7 +651,7 @@ class BaseModel {
             obj._id = this._id || null;
         }
         for (let name in fieldSchemas) {
-            if ((fields && !fields[name]) || !hasOwn.call(fieldSchemas, name)) {
+            if (fieldSchemas[name] === Object.prototype[name] || (fields && !fields[name])) {
                 continue;
             }
             let value;
