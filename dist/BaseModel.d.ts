@@ -70,7 +70,7 @@ export declare class BaseModel {
     afterSave(): Promise<any> | void;
     beforeRemove(): Promise<any> | void;
     afterRemove(): Promise<any> | void;
-    toData(fields?: Record<string, any>, methodName?: string): Object;
+    toData(fields?: Record<string, any> | null, skipNull?: boolean, methodName?: string): Object;
     inspectData(): string;
     printData(): void;
 }

@@ -857,7 +857,7 @@ export class BaseModel {
 							) {
 								(query.$set || (query.$set = { __proto__: null }))[
 									fieldKeypath
-								] = fieldValue.map((model: BaseModel) => model.toData());
+								] = fieldValue.map((model: BaseModel) => model.toData(null, true));
 							} else {
 								for (let i = 0; i < modelListLength; i++) {
 									await (fieldValue[i] as BaseModel)._save$(
@@ -879,7 +879,7 @@ export class BaseModel {
 					} else if (isNew || fieldValue[KEY_DATA] !== this[KEY_DATA][name]) {
 						(query.$set || (query.$set = { __proto__: null }))[
 							fieldKeypath
-						] = (fieldValue as BaseModel).toData();
+						] = (fieldValue as BaseModel).toData(null, true);
 					} else {
 						await (fieldValue as BaseModel)._save$(
 							fieldTypeSchema,
@@ -971,13 +971,18 @@ export class BaseModel {
 	beforeRemove(): Promise<any> | void {}
 	afterRemove(): Promise<any> | void {}
 
-	toData(fields?: Record<string, any>, methodName = 'toData'): Object {
+	toData(fields?: Record<string, any> | null, skipNull?: boolean, methodName = 'toData'): Object {
 		let schema = (this.constructor as typeof BaseModel).$schema;
 		let fieldSchemas = schema.fields;
-		let obj: Record<string, any> = {};
+		let data: Record<string, any> = {};
 
-		if (!fieldSchemas._id && schema.collectionName && (!fields || fields._id)) {
-			obj._id = this._id || null;
+		if (
+			!fieldSchemas._id &&
+			schema.collectionName &&
+			(!fields || fields._id) &&
+			(!skipNull || this._id)
+		) {
+			data._id = this._id || null;
 		}
 
 		for (let name in fieldSchemas) {
@@ -1000,31 +1005,27 @@ export class BaseModel {
 			if (value instanceof BaseModel) {
 				switch (value[methodName].length) {
 					case 0: {
-						obj[name] = value[methodName]();
+						data[name] = value[methodName]();
 						break;
 					}
 					case 1: {
-						obj[name] = value[methodName](
-							fields && typeof fields[name] == 'object'
-								? (fields[name] as any)
-								: undefined
+						data[name] = value[methodName](
+							fields && typeof fields[name] == 'object' ? fields[name] : undefined
 						);
 
 						break;
 					}
-					default: {
-						obj[name] = value[methodName](
-							fields && typeof fields[name] == 'object'
-								? (fields[name] as any)
-								: undefined,
-							methodName
+					case 2: {
+						data[name] = value[methodName](
+							fields && typeof fields[name] == 'object' ? fields[name] : undefined,
+							skipNull
 						);
 
 						break;
 					}
 				}
 			} else if (Array.isArray(value)) {
-				obj[name] =
+				data[name] =
 					value.length && value[0] instanceof BaseModel
 						? value.map((model: BaseModel) => {
 								switch (model[methodName].length) {
@@ -1034,27 +1035,27 @@ export class BaseModel {
 									case 1: {
 										return model[methodName](
 											fields && typeof fields[name] == 'object'
-												? (fields[name] as any)
+												? fields[name]
 												: undefined
 										);
 									}
-									default: {
+									case 2: {
 										return model[methodName](
 											fields && typeof fields[name] == 'object'
-												? (fields[name] as any)
+												? fields[name]
 												: undefined,
-											methodName
+											skipNull
 										);
 									}
 								}
 						  })
 						: value;
-			} else {
-				obj[name] = value;
+			} else if (!skipNull || value !== null) {
+				data[name] = value;
 			}
 		}
 
-		return obj;
+		return data;
 	}
 
 	inspectData(): string {

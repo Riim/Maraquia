@@ -565,7 +565,7 @@ class BaseModel {
                             if (isNew ||
                                 updateData ||
                                 !isListsEqual_1.isListsEqual(fieldValue, this[exports.KEY_DATA][name])) {
-                                (query.$set || (query.$set = { __proto__: null }))[fieldKeypath] = fieldValue.map((model) => model.toData());
+                                (query.$set || (query.$set = { __proto__: null }))[fieldKeypath] = fieldValue.map((model) => model.toData(null, true));
                             }
                             else {
                                 for (let i = 0; i < modelListLength; i++) {
@@ -578,7 +578,7 @@ class BaseModel {
                         }
                     }
                     else if (isNew || fieldValue[exports.KEY_DATA] !== this[exports.KEY_DATA][name]) {
-                        (query.$set || (query.$set = { __proto__: null }))[fieldKeypath] = fieldValue.toData();
+                        (query.$set || (query.$set = { __proto__: null }))[fieldKeypath] = fieldValue.toData(null, true);
                     }
                     else {
                         await fieldValue._save$(fieldTypeSchema, false, updateData, fieldKeypath, query, db, noSave);
@@ -643,12 +643,15 @@ class BaseModel {
     afterSave() { }
     beforeRemove() { }
     afterRemove() { }
-    toData(fields, methodName = 'toData') {
+    toData(fields, skipNull, methodName = 'toData') {
         let schema = this.constructor.$schema;
         let fieldSchemas = schema.fields;
-        let obj = {};
-        if (!fieldSchemas._id && schema.collectionName && (!fields || fields._id)) {
-            obj._id = this._id || null;
+        let data = {};
+        if (!fieldSchemas._id &&
+            schema.collectionName &&
+            (!fields || fields._id) &&
+            (!skipNull || this._id)) {
+            data._id = this._id || null;
         }
         for (let name in fieldSchemas) {
             if (fieldSchemas[name] === Object.prototype[name] || (fields && !fields[name])) {
@@ -667,25 +670,21 @@ class BaseModel {
             if (value instanceof BaseModel) {
                 switch (value[methodName].length) {
                     case 0: {
-                        obj[name] = value[methodName]();
+                        data[name] = value[methodName]();
                         break;
                     }
                     case 1: {
-                        obj[name] = value[methodName](fields && typeof fields[name] == 'object'
-                            ? fields[name]
-                            : undefined);
+                        data[name] = value[methodName](fields && typeof fields[name] == 'object' ? fields[name] : undefined);
                         break;
                     }
-                    default: {
-                        obj[name] = value[methodName](fields && typeof fields[name] == 'object'
-                            ? fields[name]
-                            : undefined, methodName);
+                    case 2: {
+                        data[name] = value[methodName](fields && typeof fields[name] == 'object' ? fields[name] : undefined, skipNull);
                         break;
                     }
                 }
             }
             else if (Array.isArray(value)) {
-                obj[name] =
+                data[name] =
                     value.length && value[0] instanceof BaseModel
                         ? value.map((model) => {
                             switch (model[methodName].length) {
@@ -697,20 +696,20 @@ class BaseModel {
                                         ? fields[name]
                                         : undefined);
                                 }
-                                default: {
+                                case 2: {
                                     return model[methodName](fields && typeof fields[name] == 'object'
                                         ? fields[name]
-                                        : undefined, methodName);
+                                        : undefined, skipNull);
                                 }
                             }
                         })
                         : value;
             }
-            else {
-                obj[name] = value;
+            else if (!skipNull || value !== null) {
+                data[name] = value;
             }
         }
-        return obj;
+        return data;
     }
     inspectData() {
         return prettyFormat(this.toData());
