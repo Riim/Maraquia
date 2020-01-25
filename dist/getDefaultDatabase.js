@@ -15,7 +15,10 @@ async function getDefaultDatabase() {
             databaseUrl: 'mongodb://localhost:27017/',
             databaseName: 'MaraquiaTest'
         };
-    let conn = await mongodb_1.MongoClient.connect(config.databaseUrl + (config.databaseUrl.slice(-1) == '/' ? '' : '/') + config.databaseName, { useNewUrlParser: true });
+    let conn = await mongodb_1.MongoClient.connect(config.databaseUrl + (config.databaseUrl.slice(-1) == '/' ? '' : '/') + config.databaseName, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true
+    });
     let db = conn.db(config.databaseName);
     db.__connection = conn;
     return (defaultDb = db);
