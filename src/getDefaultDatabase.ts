@@ -21,7 +21,10 @@ export async function getDefaultDatabase(): Promise<Db> {
 		  };
 	let conn = await MongoClient.connect(
 		config.databaseUrl + (config.databaseUrl.slice(-1) == '/' ? '' : '/') + config.databaseName,
-		{ useNewUrlParser: true }
+		{
+			useNewUrlParser: true,
+			useUnifiedTopology: true
+		}
 	);
 	let db = conn.db(config.databaseName);
 
