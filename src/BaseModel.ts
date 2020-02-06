@@ -742,7 +742,13 @@ export class BaseModel {
 		// console.log('query:', query);
 
 		if (!noSave) {
-			await db.collection(modelSchema.collectionName!).updateOne({ _id: this._id }, query);
+			for (let _key in query) {
+				await db
+					.collection(modelSchema.collectionName!)
+					.updateOne({ _id: this._id }, query);
+
+				break;
+			}
 		}
 
 		let $set = query.$set;
