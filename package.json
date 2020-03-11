@@ -1,7 +1,7 @@
 {
   "name": "maraquia",
-  "version": "0.5.9",
-  "description": "",
+  "version": "0.5.10",
+  "description": "Maraquia -- a simple ORM for MongoDB",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
   "scripts": {
