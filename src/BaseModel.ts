@@ -260,7 +260,7 @@ export class BaseModel {
 	_pushData: boolean;
 
 	[KEY_DATA]: Record<string, any>;
-	[KEY_VALUES]: Map<string, ObjectId | Array<ObjectId> | Promise<any> | null>;
+	[KEY_VALUES]: Map<string, ObjectId | Array<ObjectId> | Promise<any>>;
 
 	_id: ObjectId | null;
 
@@ -307,19 +307,22 @@ export class BaseModel {
 					continue;
 				}
 
-				let value_ = data[name];
+				let dataValue = data[name];
 
-				if (value_ === undefined && fieldSchema.dbFieldName) {
-					value_ = data[fieldSchema.dbFieldName];
+				if (dataValue === undefined && fieldSchema.dbFieldName) {
+					dataValue = data[fieldSchema.dbFieldName];
 				}
 
-				let value = value_ === undefined ? null : value_;
+				let value =
+					dataValue === undefined && (currentlyFetchedDataApplying || !data._id)
+						? null
+						: dataValue;
 
 				if (fieldSchema.type) {
 					let fieldType = fieldSchema.type();
 
 					if (fieldType.$schema.collectionName) {
-						if (value !== null) {
+						if (value != null) {
 							let isArray = Array.isArray(value);
 
 							if (!isArray || value.length) {
@@ -357,20 +360,17 @@ export class BaseModel {
 							}
 						}
 
-						value =
-							fieldSchema.default !== undefined
-								? typeof fieldSchema.default == 'function'
-									? fieldSchema.default()
-									: fieldSchema.default
-								: this._validateFieldValue(name, fieldSchema, null);
+						if (value !== undefined) {
+							value =
+								fieldSchema.default !== undefined
+									? typeof fieldSchema.default == 'function'
+										? fieldSchema.default()
+										: fieldSchema.default
+									: this._validateFieldValue(name, fieldSchema, null);
+						}
 
-						if (value !== null || value_ !== null) {
-							data[name] =
-								value_ === undefined
-									? undefined
-									: Array.isArray(value)
-									? value.slice()
-									: value;
+						if (value !== null || dataValue !== null) {
+							data[name] = Array.isArray(value) ? value.slice() : value;
 						}
 
 						let valuePromise = Promise.resolve(value);
@@ -380,7 +380,7 @@ export class BaseModel {
 						continue;
 					}
 
-					if (value !== null) {
+					if (value != null) {
 						if (!Array.isArray(value)) {
 							value = this._validateFieldValue(
 								name,
@@ -409,7 +409,7 @@ export class BaseModel {
 							continue;
 						}
 					}
-				} else if (value !== null) {
+				} else if (value != null) {
 					// Поле идентификатора получит значение поля с внешней моделью
 					// если не отменять это проверкой: `!(value[0] instanceof BaseModel)`.
 
@@ -466,20 +466,17 @@ export class BaseModel {
 					}
 				}
 
-				value =
-					fieldSchema.default !== undefined
-						? typeof fieldSchema.default == 'function'
-							? fieldSchema.default()
-							: fieldSchema.default
-						: this._validateFieldValue(name, fieldSchema, null);
+				if (value !== undefined) {
+					value =
+						fieldSchema.default !== undefined
+							? typeof fieldSchema.default == 'function'
+								? fieldSchema.default()
+								: fieldSchema.default
+							: this._validateFieldValue(name, fieldSchema, null);
+				}
 
-				if (value !== null || value_ !== null) {
-					data[name] =
-						value_ === undefined
-							? undefined
-							: Array.isArray(value)
-							? value.slice()
-							: value;
+				if (value !== null || dataValue !== null) {
+					data[name] = Array.isArray(value) ? value.slice() : value;
 				}
 
 				this[name] = value;
@@ -491,7 +488,9 @@ export class BaseModel {
 		}
 	}
 
-	async fetchField<T = BaseModel | Array<BaseModel>>(name: keyof this): Promise<T | null> {
+	async fetchField<T = BaseModel | Array<BaseModel>>(
+		name: keyof this
+	): Promise<T | null /* | undefined*/> {
 		let schema = (this.constructor as typeof BaseModel).$schema.fields[name as any];
 
 		if (!schema) {
@@ -512,8 +511,7 @@ export class BaseModel {
 		let value = this[KEY_VALUES].get(name as any) as
 			| ObjectId
 			| Array<ObjectId>
-			| Promise<T | null>
-			| null;
+			| Promise<T | null /* | undefined*/>;
 
 		if (value instanceof Promise) {
 			return value;
@@ -569,6 +567,10 @@ export class BaseModel {
 			throw new TypeError(`Field "${name}" is not declared`);
 		}
 
+		if (value === undefined && (this._pushData || !this[KEY_DATA]._id)) {
+			value = null;
+		}
+
 		if (value === undefined) {
 			this[KEY_DATA][name as string] = undefined;
 		} else if (this[KEY_DATA][name as string] === undefined) {
@@ -603,12 +605,14 @@ export class BaseModel {
 					}
 				}
 
-				value =
-					schema.default !== undefined
-						? typeof schema.default == 'function'
-							? schema.default()
-							: schema.default
-						: this._validateFieldValue(name as any, schema, null);
+				if (value !== undefined) {
+					value =
+						schema.default !== undefined
+							? typeof schema.default == 'function'
+								? schema.default()
+								: schema.default
+							: this._validateFieldValue(name as any, schema, null);
+				}
 
 				let valuePromise = Promise.resolve(value);
 				valuePromise[KEY_VALUE] = value;
@@ -646,7 +650,9 @@ export class BaseModel {
 		}
 
 		this[_key as any] =
-			schema.default !== undefined
+			value === undefined
+				? value
+				: schema.default !== undefined
 				? typeof schema.default == 'function'
 					? schema.default()
 					: schema.default
@@ -897,7 +903,7 @@ export class BaseModel {
 							noSave
 						);
 					}
-				} else if (!isNew && !(updateData && this[KEY_DATA][name] === undefined)) {
+				} else if (!isNew && fieldValue !== undefined) {
 					(query.$unset || (query.$unset = { __proto__: null }))[fieldKeypath] = true;
 				}
 			} else {
@@ -909,12 +915,10 @@ export class BaseModel {
 						updateData ||
 						(Array.isArray(fieldValue)
 							? !isListsEqual(fieldValue, this[KEY_DATA][name])
-							: fieldValue === null
-							? fieldValue != this[KEY_DATA][fieldSchema.dbFieldName || name]
 							: fieldValue !== this[KEY_DATA][fieldSchema.dbFieldName || name]))
 				) {
-					if (fieldValue === null || (Array.isArray(fieldValue) && !fieldValue.length)) {
-						if (!isNew && !(updateData && this[KEY_DATA][name] === undefined)) {
+					if (fieldValue == null || (Array.isArray(fieldValue) && !fieldValue.length)) {
+						if (!isNew && fieldValue !== undefined) {
 							(query.$unset || (query.$unset = { __proto__: null }))[
 								fieldKeypath
 							] = true;

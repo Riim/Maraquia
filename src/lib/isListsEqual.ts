@@ -1,4 +1,4 @@
-export function isListsEqual(a: Array<any>, b: Array<any> | null | undefined): boolean {
+export function isListsEqual(a: Array<any>, b: Array<any> | null): boolean {
 	let aLength = a.length;
 
 	if (!b) {
