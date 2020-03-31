@@ -55,7 +55,7 @@ export declare class BaseModel {
     use(db: Db): this;
     _pushData: boolean;
     [KEY_DATA]: Record<string, any>;
-    [KEY_VALUES]: Map<string, ObjectId | Array<ObjectId> | Promise<any> | null>;
+    [KEY_VALUES]: Map<string, ObjectId | Array<ObjectId> | Promise<any>>;
     _id: ObjectId | null;
     constructor(data?: Record<string, any>, db?: Db | null);
     fetchField<T = BaseModel | Array<BaseModel>>(name: keyof this): Promise<T | null>;

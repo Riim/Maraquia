@@ -1,6 +1,6 @@
 {
   "name": "maraquia",
-  "version": "0.5.10",
+  "version": "0.5.11",
   "description": "Maraquia -- a simple ORM for MongoDB",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
@@ -25,19 +25,19 @@
     "@types/pluralize": "0.0.29",
     "@types/pretty-format": "^24.3.0",
     "benchmark": "^2.1.4",
-    "jest": "^25.1.0",
+    "jest": "^25.2.4",
     "joi": "^14.3.1",
-    "mongoose": "5.9.4",
+    "mongoose": "5.9.7",
     "mongorito": "3.0.4",
-    "ts-jest": "^25.2.1",
+    "ts-jest": "^25.3.0",
     "typescript": "^3.8.3"
   },
   "dependencies": {
-    "@types/mongodb": "^3.5.2",
+    "@types/mongodb": "^3.5.4",
     "debug": "^4.1.1",
-    "mongodb": "^3.5.4",
+    "mongodb": "^3.5.5",
     "pluralize": "^8.0.0",
-    "pretty-format": "^25.1.0"
+    "pretty-format": "^25.2.3"
   },
   "jest": {
     "transform": {

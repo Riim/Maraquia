@@ -49,15 +49,17 @@ class BaseModel {
                 if (fieldSchema === Object.prototype[name]) {
                     continue;
                 }
-                let value_ = data[name];
-                if (value_ === undefined && fieldSchema.dbFieldName) {
-                    value_ = data[fieldSchema.dbFieldName];
+                let dataValue = data[name];
+                if (dataValue === undefined && fieldSchema.dbFieldName) {
+                    dataValue = data[fieldSchema.dbFieldName];
                 }
-                let value = value_ === undefined ? null : value_;
+                let value = dataValue === undefined && (currentlyFetchedDataApplying || !data._id)
+                    ? null
+                    : dataValue;
                 if (fieldSchema.type) {
                     let fieldType = fieldSchema.type();
                     if (fieldType.$schema.collectionName) {
-                        if (value !== null) {
+                        if (value != null) {
                             let isArray = Array.isArray(value);
                             if (!isArray || value.length) {
                                 if ((isArray ? value[0] : value) instanceof mongodb_1.ObjectId) {
@@ -85,26 +87,23 @@ class BaseModel {
                                 continue;
                             }
                         }
-                        value =
-                            fieldSchema.default !== undefined
-                                ? typeof fieldSchema.default == 'function'
-                                    ? fieldSchema.default()
-                                    : fieldSchema.default
-                                : this._validateFieldValue(name, fieldSchema, null);
-                        if (value !== null || value_ !== null) {
-                            data[name] =
-                                value_ === undefined
-                                    ? undefined
-                                    : Array.isArray(value)
-                                        ? value.slice()
-                                        : value;
+                        if (value !== undefined) {
+                            value =
+                                fieldSchema.default !== undefined
+                                    ? typeof fieldSchema.default == 'function'
+                                        ? fieldSchema.default()
+                                        : fieldSchema.default
+                                    : this._validateFieldValue(name, fieldSchema, null);
+                        }
+                        if (value !== null || dataValue !== null) {
+                            data[name] = Array.isArray(value) ? value.slice() : value;
                         }
                         let valuePromise = Promise.resolve(value);
                         valuePromise[exports.KEY_VALUE] = value;
                         this[exports.KEY_VALUES].set(name, valuePromise);
                         continue;
                     }
-                    if (value !== null) {
+                    if (value != null) {
                         if (!Array.isArray(value)) {
                             value = this._validateFieldValue(name, fieldSchema, value instanceof BaseModel ? value : new fieldType(value, db));
                             data[name] = value;
@@ -121,7 +120,7 @@ class BaseModel {
                         }
                     }
                 }
-                else if (value !== null) {
+                else if (value != null) {
                     // Поле идентификатора получит значение поля с внешней моделью
                     // если не отменять это проверкой: `!(value[0] instanceof BaseModel)`.
                     let isArray = Array.isArray(value);
@@ -159,19 +158,16 @@ class BaseModel {
                         continue;
                     }
                 }
-                value =
-                    fieldSchema.default !== undefined
-                        ? typeof fieldSchema.default == 'function'
-                            ? fieldSchema.default()
-                            : fieldSchema.default
-                        : this._validateFieldValue(name, fieldSchema, null);
-                if (value !== null || value_ !== null) {
-                    data[name] =
-                        value_ === undefined
-                            ? undefined
-                            : Array.isArray(value)
-                                ? value.slice()
-                                : value;
+                if (value !== undefined) {
+                    value =
+                        fieldSchema.default !== undefined
+                            ? typeof fieldSchema.default == 'function'
+                                ? fieldSchema.default()
+                                : fieldSchema.default
+                            : this._validateFieldValue(name, fieldSchema, null);
+                }
+                if (value !== null || dataValue !== null) {
+                    data[name] = Array.isArray(value) ? value.slice() : value;
                 }
                 this[name] = value;
             }
@@ -359,6 +355,9 @@ class BaseModel {
         if (!schema) {
             throw new TypeError(`Field "${name}" is not declared`);
         }
+        if (value === undefined && (this._pushData || !this[exports.KEY_DATA]._id)) {
+            value = null;
+        }
         if (value === undefined) {
             this[exports.KEY_DATA][name] = undefined;
         }
@@ -388,12 +387,14 @@ class BaseModel {
                         return this;
                     }
                 }
-                value =
-                    schema.default !== undefined
-                        ? typeof schema.default == 'function'
-                            ? schema.default()
-                            : schema.default
-                        : this._validateFieldValue(name, schema, null);
+                if (value !== undefined) {
+                    value =
+                        schema.default !== undefined
+                            ? typeof schema.default == 'function'
+                                ? schema.default()
+                                : schema.default
+                            : this._validateFieldValue(name, schema, null);
+                }
                 let valuePromise = Promise.resolve(value);
                 valuePromise[exports.KEY_VALUE] = value;
                 this[exports.KEY_VALUES].set(name, valuePromise);
@@ -417,11 +418,13 @@ class BaseModel {
             return this;
         }
         this[_key] =
-            schema.default !== undefined
-                ? typeof schema.default == 'function'
-                    ? schema.default()
-                    : schema.default
-                : this._validateFieldValue(name, schema, null);
+            value === undefined
+                ? value
+                : schema.default !== undefined
+                    ? typeof schema.default == 'function'
+                        ? schema.default()
+                        : schema.default
+                    : this._validateFieldValue(name, schema, null);
         return this;
     }
     _validateFieldValue(fieldName, fieldSchema, value) {
@@ -589,7 +592,7 @@ class BaseModel {
                         await fieldValue._save$(fieldTypeSchema, false, updateData, fieldKeypath, query, db, noSave);
                     }
                 }
-                else if (!isNew && !(updateData && this[exports.KEY_DATA][name] === undefined)) {
+                else if (!isNew && fieldValue !== undefined) {
                     (query.$unset || (query.$unset = { __proto__: null }))[fieldKeypath] = true;
                 }
             }
@@ -600,11 +603,9 @@ class BaseModel {
                         updateData ||
                         (Array.isArray(fieldValue)
                             ? !isListsEqual_1.isListsEqual(fieldValue, this[exports.KEY_DATA][name])
-                            : fieldValue === null
-                                ? fieldValue != this[exports.KEY_DATA][fieldSchema.dbFieldName || name]
-                                : fieldValue !== this[exports.KEY_DATA][fieldSchema.dbFieldName || name]))) {
-                    if (fieldValue === null || (Array.isArray(fieldValue) && !fieldValue.length)) {
-                        if (!isNew && !(updateData && this[exports.KEY_DATA][name] === undefined)) {
+                            : fieldValue !== this[exports.KEY_DATA][fieldSchema.dbFieldName || name]))) {
+                    if (fieldValue == null || (Array.isArray(fieldValue) && !fieldValue.length)) {
+                        if (!isNew && fieldValue !== undefined) {
                             (query.$unset || (query.$unset = { __proto__: null }))[fieldKeypath] = true;
                         }
                     }
